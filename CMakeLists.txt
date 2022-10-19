@@ -7,7 +7,7 @@ set(SOURCE_FILES main.cpp
         TcpClientChannel.cpp
         TcpClientChannel.h
         FileHandler.cpp
-        FileHandler.h ServerIcd.h ClientLogic.cpp ClientLogic.h)
+        FileHandler.h ServerIcd.h ClientLogic.cpp ClientLogic.h RSAWrapper.cpp RSAWrapper.h ServerConfig.cpp ServerConfig.h UserInterface.cpp UserInterface.h ClientConfig.cpp ClientConfig.h)
 
 add_executable(mmn15_defense ${SOURCE_FILES})
 
