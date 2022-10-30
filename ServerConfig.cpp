@@ -1,38 +1,27 @@
 
 #include "ServerConfig.h"
-#include "boost/asio/ip/tcp.hpp"
 #include "iostream"
 
 
 
 ServerConfig* ServerConfig::instance = nullptr;
-
-ServerConfig* ServerConfig::Instance()
-{
-    if (instance == nullptr)
-    {
-        instance = new ServerConfig();
-        if(!initialize())
-        {
-            delete instance;
-            instance = nullptr;
-            return nullptr;
-        }
-    }
-    return instance;
-}
+//
+//ServerConfig* ServerConfig::Instance()
+//{
+//    if (instance == nullptr)
+//    {
+//        instance = new ServerConfig();
+//        if(!initialize())
+//        {
+//            delete instance;
+//            instance = nullptr;
+//            return nullptr;
+//        }
+//    }
+//    return instance;
+//}
 ServerConfig::ServerConfig(){
-    m_transferInfo = TransferInfo();
-    Err = {
-            {ErrorReports::SOCKET_PARAMS_MISSING, "Socket parameters are missing "},
-            {ErrorReports::SOCKET_PARAMS_FAILED, "Failed to find socket parameters "},
-            {ErrorReports::IP_ADDR_INVALID,"Ip address invalid"},
-            {ErrorReports::PORT_INVALID, "Port number is invalid"},
-            {ErrorReports::CLIENT_NAME_MISSING,"Client name is missing "},
-            {ErrorReports::CLIENT_NAME_TO_LONG,"client name exceeded 100 characters "},
-            {ErrorReports::FILE_DOES_NOT_EXISTS, "Failed to find 'transfer.info' file"},
-            {ErrorReports::FILE_NAME_MISSING,"File name Missing"}
-    };
+
 }
 
 /* Get params from file
@@ -75,7 +64,7 @@ bool ServerConfig::GetClientName(std::string& nameLine) {
         return false;
     }boost::algorithm::trim(nameLine);
 
-    if(nameLine.length() >= CLIENT_NAME_LEN) {
+    if(nameLine.length() >= CLIENT_MAX_NAME) {
         m_lastError << Err.at(ErrorReports::CLIENT_NAME_TO_LONG);
         return false;
     }
@@ -140,19 +129,80 @@ bool ServerConfig::GetSocketParams(std::string& paramsLine) {
     }
     return true;
 }
+//
+//TransferInfo ServerConfig::GetTransferInfo() {
+//
+//    return m_transferInfo;
+//}
+//
+//string ServerConfig::GetLastError() {
+//    return m_lastError.str();
+//}
 
-TransferInfo& ServerConfig::GetTransferInfo() {
 
-    return m_transferInfo;
+
+bool ServerConfig::isRegistered(){
+
+    if(!std::filesystem::exists(REGISTRATION_CONFIG)) {
+        return false;
+    }
+    else{
+        auto fileStream = new std::fstream;
+
+        fileStream->open(REGISTRATION_CONFIG, std::fstream::in);
+        if (fileStream->is_open()) {
+            std::string line;
+            try
+            {
+                std::getline(*fileStream, line);
+                if (!CheckClientName(line)) {
+                    return false;
+                }
+                std::getline(*fileStream, line);
+                if (!GetRSAKey(line)) {
+                    return false;
+                }
+            }
+            catch (...)
+            {
+                return false;
+            }
+            fileStream->close();
+        }
+
+    }
+    return true;
 }
 
-string ServerConfig::GetLastError() {
-    return m_lastError.str();
+
+bool ServerConfig::GetRSAKey(string &line) {
+    return false;
 }
 
-std::string &operator<<(std::string &os, string log) {
+bool ServerConfig::CheckClientName(string &line) {
+    if (line.empty()) {
+        m_lastError << Err.at(ErrorReports::CLIENT_NAME_MISSING);
+        return false;
+    }
+    boost::algorithm::trim(line);
+    if(line.length() > CLIENT_MAX_NAME) {
+        m_lastError << Err.at(ErrorReports::CLIENT_NAME_TOO_LONG);
+        return false;
+    }
+    //std::iterator alnumpPtr = line.get_allocator();
+    auto alnumpPtr(std::find_if(line.begin(), line.end(), (int(*)(int))std::isalpha));
+    if(alnumpPtr.base() == nullptr)
+    {
+
+    }
+    m_clientInfo.name.append(line);
+    return true;
+}
+
+
+std::stringstream &operator<<(std::stringstream &os, string& log) {
     os.clear();
-    os.append(log);
+    os.operator<<(log.c_str());
     return os;
 }
 

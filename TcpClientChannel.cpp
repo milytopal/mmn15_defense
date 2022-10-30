@@ -162,7 +162,7 @@ size_t TcpClientChannel::GetHeader(uint8_t* buffer, ResponseCode expectedCode)
 
 bool TcpClientChannel::Write()
 {
-
+return false;
 }
 
 void TcpClientChannel::setNewDataSignalCallBack(std::function<void (std::string errTopic)> callback) {

@@ -1,5 +1,5 @@
 #include <iostream>
-#include <cryptopp/cryptlib.h>
+#include <cryptlib.h>
 
 
 int main() {

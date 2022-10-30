@@ -38,7 +38,7 @@ enum ResponseCode
     MSG_RECEIVED                = 2104
 };
 
-enum MessageType
+enum MessageType   //todo: check if needed
 {
     MSG_SYMMETRIC_KEY_REQUEST = 1,
     MSG_SYMMETRIC_KEY_SEND    = 2,
@@ -155,6 +155,16 @@ struct ReceivingApprovedResponseMessage
 
 ///////////////////////// REQUESTS TO SERVER /////////////////////////
 
+struct RegistrationRequestMessage /* Server ignores ClientID feild in header*/
+{
+    RequestHeader header;
+    struct
+    {
+        ClientName clientName;
+    }payload;
+    RegistrationRequestMessage(const ClientName name) : header(REQUEST_REGISTRATION) { payload.clientName = name;} // server ignores ClientID
+};
+
 struct PublicKeyRequestMessage
 {
     RequestHeader header;
@@ -165,17 +175,6 @@ struct PublicKeyRequestMessage
     }payload;
     PublicKeyRequestMessage(const ClientID& id, const ClientName name) : header(id, REQUEST_TO_SEND_FILE)
     {payload.clientName = name;}
-};
-
-struct RegistrationRequestMessage
-{
-    RequestHeader header;
-    struct
-    {
-        ClientName clientName;
-        PublicKey  clientPublicKey;
-    }payload;
-    RegistrationRequestMessage(const ClientName name) : header(REQUEST_REGISTRATION) { payload.clientName = name;} // server ignores ClientID
 };
 
 struct RequestToSendFileMessage
@@ -192,20 +191,20 @@ struct RequestToSendFileMessage
 struct CrcValidRequestMessage {
     RequestHeader header;
     CRCStatus payload;
-    CrcValidRequestMessage(const ClientID& id) : header(id, REQUEST_TO_SEND_FILE),payload(id) {}
+    CrcValidRequestMessage(const ClientID& id) : header(id, REQUEST_CRC_VALID),payload(id) {}
 };
 
 struct CrcNotValidResendRequestMessage {
     RequestHeader header;
     CRCStatus payload;
-    CrcNotValidResendRequestMessage(const ClientID& id) : header(id, REQUEST_TO_SEND_FILE),payload(id) {}
+    CrcNotValidResendRequestMessage(const ClientID& id) : header(id, INVALID_CRC_RESEND_REQUEST),payload(id) {}
 };
 
 
 struct CrcNotValidAbortRequestMessage {
     RequestHeader header;
     CRCStatus payload;
-    CrcNotValidAbortRequestMessage(const ClientID& id) : header(id, REQUEST_TO_SEND_FILE) ,payload(id) {}
+    CrcNotValidAbortRequestMessage(const ClientID& id) : header(id, INVALID_CRC_ABORT) ,payload(id) {}
 };
 
 

@@ -1,9 +1,13 @@
 # ninja log v5
-930	965	1665419082478154376	mmn15_defense	24f3d9070bc7bcd0
-1	375	1665419081886850848	CMakeFiles/mmn15_defense.dir/main.cpp.o	4fc67a87841a21b3
-0	42	1666021087719905840	build.ninja	ae107a18f42a72d2
-1	929	1665419082438622835	CMakeFiles/mmn15_defense.dir/TcpClientChannel.cpp.o	23c34fbbef289246
-5	124	1665929787616020033	CMakeFiles/mmn15_defense.dir/RSAWrapper.cpp.o	b40ae50ee7b8a9d2
-5	518	1665929788010123040	CMakeFiles/mmn15_defense.dir/FileHandler.cpp.o	bef38d0cd2c40b5a
-5	1320	1665929788809181867	CMakeFiles/mmn15_defense.dir/ServerConfig.cpp.o	bc7eb40766a34bb
-7	487	1666010982739992526	CMakeFiles/mmn15_defense.dir/UserInterface.cpp.o	cb6ef77fdf48bb9
+1384	1532	1666457648472265418	mmn15_defense	42e2f5191fe49880
+4	470	1666456530480879035	CMakeFiles/mmn15_defense.dir/main.cpp.o	e9c7e6460c2b4243
+5	577	1666456530593784001	CMakeFiles/mmn15_defense.dir/RSAWrapper.cpp.o	b288a682513e2182
+4	1403	1666456531416838058	CMakeFiles/mmn15_defense.dir/TcpClientChannel.cpp.o	c8efb7936da45af
+5	505	1666456530519677513	CMakeFiles/mmn15_defense.dir/Base64Wrapper.cpp.o	760e8bef397ec991
+4	871	1666457647808332890	CMakeFiles/mmn15_defense.dir/FileHandler.cpp.o	94fb3526e93e7ace
+5	828	1666457647765482032	CMakeFiles/mmn15_defense.dir/ServerConfig.cpp.o	fcbf1045bb3e330c
+0	40	1666950093077894595	build.ninja	17dba555d83f2edc
+1	4	0	clean	cf465b0b2986f3f8
+5	479	1666456530493359735	CMakeFiles/mmn15_defense.dir/AESWrapper.cpp.o	951d2cad5fe87014
+5	1341	1666457648274565195	CMakeFiles/mmn15_defense.dir/ClientManager.cpp.o	42b1aa696ca24213
+5	1384	1666457648319054403	CMakeFiles/mmn15_defense.dir/ClientLogic.cpp.o	b048b36cb70c2d9f

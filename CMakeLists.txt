@@ -7,14 +7,29 @@ set(SOURCE_FILES main.cpp
         TcpClientChannel.cpp
         TcpClientChannel.h
         FileHandler.cpp
-        FileHandler.h ServerIcd.h ClientLogic.cpp ClientLogic.h RSAWrapper.cpp RSAWrapper.h ServerConfig.cpp ServerConfig.h UserInterface.cpp UserInterface.h ClientConfig.cpp ClientConfig.h)
+        FileHandler.h
+        ServerIcd.h
+        ClientLogic.cpp
+        ClientLogic.h
+        RSAWrapper.cpp
+        RSAWrapper.h
+        ServerConfig.cpp
+        ServerConfig.h
+        ClientManager.cpp
+        ClientManager.h
+        Base64Wrapper.cpp
+        Base64Wrapper.h
+        AESWrapper.cpp
+        AESWrapper.h
+        )
 
-add_executable(mmn15_defense ${SOURCE_FILES})
+add_executable(${PROJECT_NAME} ${SOURCE_FILES})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 ")
 
 # Set Boost library
-set(BOOST_ROOT "/opt/homebrew/Cellar/boost/1.79.0_1")
-set(BOOST_INCLUDE_DIR "/opt/homebrew/Cellar/boost/1.79.0_1/include")
-set(BOOST_LIBRARY_DIR "/opt/homebrew/Cellar/boost/1.79.0_1/lib")
+set(BOOST_ROOT "/opt/homebrew/Cellar/boost/boost")
+set(BOOST_INCLUDE_DIR "/opt/homebrew/Cellar/boost/boost/include")
+set(BOOST_LIBRARY_DIR "/opt/homebrew/Cellar/boost/boost/lib")
 # Set CryptoPP library
 set(CRYPTOPP_INCLUDE_DIR "/Users/milytopal/CLionProjects/mmn15_defense/libs/cryptopp/include/cryptopp")
 set(CRYPTOPP_LIBRARY_DIR "/Users/milytopal/CLionProjects/mmn15_defense/libs/cryptopp")
@@ -32,7 +47,7 @@ include_directories(${BOOST_INCLUDE_DIR})
 include_directories(/Users/milytopal/CLionProjects/mmn15_defense/libs)
 
 include_directories(${CRYPTOPP_INCLUDE_DIR})
-#include_directories(${CRYPTOPP_LIBRARY_DIR})
+include_directories(${CRYPTOPP_LIBRARY_DIR})
 
 if(NOT BOOST_FOUND)
     message(FATAL_ERROR "Could not find boost!")
@@ -45,8 +60,9 @@ link_libraries(${CRYPTOPP_LIBRARY_DIR}/libcryptopp.a)
 link_directories(${CRYPTOPP_LIBRARY_DIR})
 link_directories(${CRYPTOPP_INCLUDE_DIR})
 
-target_link_libraries(mmn15_defense PUBLIC ${CRYPTOPP_LIBRARY_DIR}/libcryptopp.a)
-target_link_directories(mmn15_defense PUBLIC ${CRYPTOPP_INCLUDE_DIR})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${CRYPTOPP_LIBRARY_DIR}/libcryptopp.a)
+target_link_directories(${PROJECT_NAME} PUBLIC ${CRYPTOPP_INCLUDE_DIR})
+target_link_directories(${PROJECT_NAME} PUBLIC ${BOOST_INCLUDE_DIR})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 

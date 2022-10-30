@@ -10,19 +10,6 @@
 #include "FileHandler.h"
 #include "RSAWrapper.h"
 
-std::stringstream  m_lastError;
-
-#define clearErr const std::stringstream clean; \
-m_lastError.str("");             \
-m_lastError.clear();             \
-m_lastError.copyfmt(clean);      \
-
-#define LogErr \
-clearErr       \
-m_lastError << __FILE__ << " " << __LINE__ << " "
-
-
-
 class ClientLogic {
 public:
     struct Client
@@ -57,10 +44,10 @@ private:
     std::vector<Client> m_clients;
     FileHandler*        m_fileHandler;
     TcpClientChannel*      m_socketHandler;
-    RSAWrapper*   m_rsaDecryptor;
+    //RSAWrapper*   m_rsaDecryptor;
 
     void SetUpChannel();
-
+    std::stringstream  m_lastError;
     void clearError();
 };
 

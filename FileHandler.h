@@ -16,9 +16,6 @@ public:
     bool Read();
     bool Write();
 
-    /*returns file for transfer*/
-    std::string& GetFileName();
-    std::string& GetClientName();
 
 private:
     /* path to file for transfer */
