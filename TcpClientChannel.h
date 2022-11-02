@@ -47,7 +47,7 @@ private:
     std::thread m_readingThread;
 
     std::stringstream log;
-    size_t GetHeader(uint8_t *buffer, ResponseCode expectedCode);
+    bool GetHeader(uint8_t *buffer, ResponseCode expectedCode);
     bool ReadPayload(uint8_t* const buffer ,const size_t size ,size_t& bytesRed);
 
 

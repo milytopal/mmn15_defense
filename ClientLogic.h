@@ -9,7 +9,7 @@
 #include "ServerIcd.h"
 #include "FileHandler.h"
 #include "RSAWrapper.h"
-
+#include <queue>
 class ClientLogic {
 public:
     struct Client
@@ -45,9 +45,23 @@ private:
     FileHandler*        m_fileHandler;
     TcpClientChannel*      m_socketHandler;
     //RSAWrapper*   m_rsaDecryptor;
-
+    std::queue<std::pair<uint8_t*, size_t>> m_MessageQueue;
+    bool m_WaitingForResponse = false;
     void SetUpChannel();
     std::stringstream  m_lastError;
     void clearError();
+    static int m_numOfAttempts;
+
+    void AddMessageToQueue(uint8_t *buff, size_t size);
+
+    bool SendPublicKeyToServer(uint8_t *key, size_t size);
+
+    bool HandelSymmetricKeyResponseFromServer();
+
+    bool HandelRegistrationApproved();
+
+    bool SendRegistrationRequest();
+
+    bool SendEncryptedFileToServer(uint8_t *file, size_t size);
 };
 

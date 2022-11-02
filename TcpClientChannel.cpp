@@ -96,12 +96,15 @@ bool TcpClientChannel::Read(uint8_t* const buffer, const size_t size ,size_t& by
         memcpy(buffPtr, tempBuffer, copySize);
         buffPtr += copySize;
         bytesToRead = (bytesToRead < copySize) ? 0 : (bytesToRead - copySize);  // unsigned protection.
+        // continue another while for getting payload
+
+
     }
     return true;
 }
 
 /* Gets the header from the readed buffer red by channel and validates it */
-size_t TcpClientChannel::GetHeader(uint8_t* buffer, ResponseCode expectedCode)
+bool TcpClientChannel::GetHeader(uint8_t* buffer, ResponseCode expectedCode)
 {
     ResponseHeader header;
     uint32_t sizeExpected = 0;
