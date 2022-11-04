@@ -116,8 +116,13 @@ bool ClientLogic::SendNextMessage()
         bool isThereMessToSend = false;
         if(!m_MessageQueue.empty())
         {
-            messageToSend = get(m_MessageQueue.front());
+            messageToSend = m_MessageQueue.front();
+            m_MessageQueue.pop();
+            m_numOfAttempts = 3;
+            SendMessageToChannel(messageToSend.first, messageToSend.second);
             //isThereMessToSend =
         }
     }
 }
+
+bool Client
