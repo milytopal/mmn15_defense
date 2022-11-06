@@ -33,7 +33,7 @@ enum ResponseCode
 {
     REGISTRATION_SUCCEEDED     = 2100,
     REGISTRATION_FAILED         = 2101,
-    PUBLIC_KEY_RECEIVED         = 2102,      // send out AES key
+    PUBLIC_KEY_RECEIVED         = 2102,      // send out AES key payload size unkown ?
     MSG_RECEIVED_CRC_VALID      = 2103,
     MSG_RECEIVED                = 2104
 };
@@ -65,21 +65,39 @@ struct ClientID
         return !(*this == otherID);
     }
 
+    bool isEmpty() {
+        auto tmp = std::bitset<CLIENT_ID_SIZE>(uuid);
+        return tmp.none();
+    }
 };
 
 struct ClientName
 {
     uint8_t name[CLIENT_NAME_SIZE] = {0};
+    bool isEmpty() {
+        auto tmp = std::bitset<CLIENT_NAME_SIZE>(name);
+        return tmp.none();
+    }
+    ClientName()= default;;
+    explicit ClientName(std::string nameStr){ memcpy(name, nameStr.c_str(), CLIENT_NAME_SIZE);};
 };
 
 struct PublicKey
 {
     uint8_t publicKey[PUBLIC_KEY_SIZE] = {0};
+    bool isEmpty() {
+        auto tmp = std::bitset<PUBLIC_KEY_SIZE>(publicKey);
+        return tmp.none();
+    }
 };
 
 struct SymmetricKey
 {
     uint8_t symmetricKey[SYMMETRIC_KEY_SIZE] = {0};        // size varies
+    bool isEmpty() {
+        auto tmp = std::bitset<SYMMETRIC_KEY_SIZE>(symmetricKey);
+        return tmp.none();
+    }
 };
 
 

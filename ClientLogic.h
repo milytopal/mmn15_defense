@@ -17,18 +17,21 @@ public:
         ClientID     id;
         std::string   username;
         PublicKey    publicKey;
-        bool          publicKeySet    = false;
+        bool          publicKeySet    = false;  // added function in struct - can be removed
         SymmetricKey symmetricKey;
-        bool          symmetricKeySet = false;
+        bool          symmetricKeySet = false;  // added function in struct - can be removed
     };
 
-    ClientLogic();
+    ClientLogic(std::string name);
 
     ~ClientLogic();
-
+    ClientID m_id;
     std::string GetLastError();
     void SubscribeToChannelError();
     std::function<void (std::string err)> subscribeToChannelError;
+protected:
+    bool SetClientId(ClientID id);
+
 
 private:
     std::map<MessageType, std::string> m_msgDescription = {
@@ -38,11 +41,12 @@ private:
             {MSG_FILE,                  "file"}
     };
 
-
+    ClientName m_name;
     bool ParseServeInfo();
     Client              m_self;           // self symmetric key invalid.
+
     std::vector<Client> m_clients;
-    FileHandler*        m_fileHandler;
+    FileHandler* m_fileHandler;
     TcpClientChannel*      m_socketHandler;
     //RSAWrapper*   m_rsaDecryptor;
     std::queue<std::pair<uint8_t*, size_t>> m_MessageQueue;
@@ -63,5 +67,11 @@ private:
     bool SendRegistrationRequest();
 
     bool SendEncryptedFileToServer(uint8_t *file, size_t size);
+
+    bool SendMessageToChannel(uint8_t *buff, size_t length);
+
+    bool SendNextMessage();
+
+    bool WaitForResponse(ResponseCode expectedResponse);
 };
 

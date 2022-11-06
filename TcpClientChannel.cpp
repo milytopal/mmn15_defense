@@ -70,50 +70,60 @@ bool TcpClientChannel::Open()
  * Exceptions: when the Message expected is the symetrick key which size is unknown but not more than 16 bytes(128 bits)*/
 bool TcpClientChannel::Read(uint8_t* const buffer, const size_t size ,size_t& bytesRed, ResponseCode expectedCode)
 {
-    size_t bytesToRead = size;
+    size_t bytesToRead = 0;
+    size_t payloadSizeLeft = 0;
     ResponseHeader header;
     uint8_t *buffPtr = buffer;
     uint8_t *tempBuffPtr = nullptr;
-    while(bytesToRead > 0)
+
+    uint8_t tempBuffer[PACKET_SIZE] = { 0 };
+    boost::system::error_code err; // read() will not throw exception when error_code is passed as argument.
+    bytesRed = read(*m_socket, boost::asio::buffer(tempBuffer, PACKET_SIZE), err); // todo: might need to change size to packet size
+    if (bytesRed == 0)
+        return false;     // Error. Failed receiving and shouldn't use buffer.
+    payloadSizeLeft = GetHeader(tempBuffer, expectedCode);
+    header = reinterpret_cast<ResponseHeader&>(tempBuffer);
+    if(payloadSizeLeft == 0 && header.code != REGISTRATION_FAILED && header.code != MSG_RECEIVED )
     {
-        uint8_t tempBuffer[PACKET_SIZE] = { 0 };
-        boost::system::error_code err; // read() will not throw exception when error_code is passed as argument.
-        bytesRed = read(*m_socket, boost::asio::buffer(buffer, size), err); // todo: might need to change size to packet size
-        if (bytesRed == 0)
-            return false;     // Error. Failed receiving and shouldn't use buffer.
+        // GetHeader returned an error
+        return false;
+    }
 
-        if(!GetHeader(tempBuffer, expectedCode))
-        {
-            return false;
-        }
-        // Header validated
-        header = reinterpret_cast<ResponseHeader&>(buffPtr);
-        if(header.payloadSize == 0) {
-            return true;    // no payload expected
-        }
-
+    // Header validated
+    if(header.payloadSize == 0) {
+        return true;    // no payload expected
+    }
+    bytesToRead = payloadSizeLeft;
+    const size_t copySize = (bytesToRead > bytesRed) ? bytesRed : bytesToRead;  // in case bytes red less than bytes to read
+    memcpy(buffPtr, tempBuffer, copySize);
+    buffPtr += copySize;
+    bytesToRead = (bytesToRead < copySize) ? 0 : (bytesToRead - copySize);  // unsigned protection.
+    // continue another while for getting payload
+    while(bytesToRead > 0 && payloadSizeLeft > 0)
+    {
+        if (bytesToRead > PACKET_SIZE)
+            bytesToRead = PACKET_SIZE;
+        bytesRed = read(*m_socket, boost::asio::buffer(tempBuffer, bytesToRead), err); // todo: might need to change size to packet size
         const size_t copySize = (bytesToRead > bytesRed) ? bytesRed : bytesToRead;  // in case bytes red less than bytes to read
         memcpy(buffPtr, tempBuffer, copySize);
         buffPtr += copySize;
         bytesToRead = (bytesToRead < copySize) ? 0 : (bytesToRead - copySize);  // unsigned protection.
-        // continue another while for getting payload
-
-
+        payloadSizeLeft -= bytesRed;
     }
     return true;
 }
 
 /* Gets the header from the readed buffer red by channel and validates it */
-bool TcpClientChannel::GetHeader(uint8_t* buffer, ResponseCode expectedCode)
+size_t TcpClientChannel::GetHeader(uint8_t* buffer, ResponseCode expectedCode) // todo: remove expected code
 {
     ResponseHeader header;
     uint32_t sizeExpected = 0;
     boost::system::error_code err; // read() will not throw exception when error_code is passed as argument.
     header = reinterpret_cast<ResponseHeader&>(buffer);
-    if (header.code != expectedCode) {
-
+    if (header.code < REGISTRATION_SUCCEEDED || header.code > MSG_RECEIVED) // code received is not a response code
+    {
         ReportErrorToClient("Received Unexpected Code");
-        return false;
+        return 0;
     }
     switch (header.code)
     {
@@ -143,29 +153,44 @@ bool TcpClientChannel::GetHeader(uint8_t* buffer, ResponseCode expectedCode)
             {
                 log << "Unexpected payload size " << header.payloadSize << ". Expected size was " << sizeExpected;
                 ReportErrorToClient (log.str());
-                return false;
+                return 0;
             }
             return true; // Symmetric key size varies
         }
         default:
         {
             ReportErrorToClient("Received Unknown Code");
-            return false;
+            return 0;
         }
     }
     if (header.payloadSize != sizeExpected)
     {
         log << "Unexpected payload size " << header.payloadSize << ". Expected size was " << sizeExpected;
         ReportErrorToClient (log.str());
-        return false;
+        return 0;
     }
-    return true;
+    return header.payloadSize;
 }
 
 
-bool TcpClientChannel::Write()
+bool TcpClientChannel::Write(uint8_t* buffer, size_t length)
 {
-return false;
+    if(m_socket == nullptr || !m_socket->is_open() || m_ioContext->stopped() || !m_isOpen)
+        return false;
+    size_t bytesWritten = 0;
+    size_t bytesToWrite = length;
+    uint8_t* buffPtr = buffer;
+    while(bytesToWrite > 0)
+    {
+
+        boost::system::error_code errorCode;
+        bytesWritten = write(*m_socket, boost::asio::buffer(buffPtr,PACKET_SIZE), errorCode);
+        if(bytesWritten == 0)
+            return false;
+        buffPtr+=bytesWritten;
+        bytesToWrite = (bytesToWrite < bytesWritten) ? 0 : (bytesToWrite - bytesWritten);
+    }
+    return true;
 }
 
 void TcpClientChannel::setNewDataSignalCallBack(std::function<void (std::string errTopic)> callback) {
@@ -192,8 +217,3 @@ void TcpClientChannel::run() {
     }
 
 }
-
-bool TcpClientChannel::ReadPayload(uint8_t *const buffer, const size_t size, size_t &bytesRed) {
-    return false;
-}
-

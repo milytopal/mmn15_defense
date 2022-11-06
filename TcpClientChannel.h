@@ -21,7 +21,7 @@ public:
     void run();
     bool Open();
     bool isOpen();
-    bool Write();
+    bool Write(uint8_t* buffer, size_t length);
     void setNewDataSignalCallBack(std::function<void (std::string errTopic)> callback);
 
     std::function<void (std::string errTopic)> ReportErrorToClient;
@@ -47,7 +47,11 @@ private:
     std::thread m_readingThread;
 
     std::stringstream log;
-    bool GetHeader(uint8_t *buffer, ResponseCode expectedCode);
+    /*GetHeader reads ResponseHeader from the buffer received by the socket,
+     * compares OpCodes and the size of payload declared in the header, validates it,
+     * and returns the size of the payload that is left to read
+     * in protocol there is only one message that the payload size expected is zero*/
+    size_t GetHeader(uint8_t *buffer, ResponseCode expectedCode);
     bool ReadPayload(uint8_t* const buffer ,const size_t size ,size_t& bytesRed);
 
 

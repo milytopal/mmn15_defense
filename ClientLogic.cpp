@@ -4,7 +4,9 @@
 
 #include "ClientLogic.h"
 
-ClientLogic::ClientLogic() {
+ClientLogic::ClientLogic(std::string name)
+: m_name(ClientName(name))
+{
 
     subscribeToChannelError = std::function<void (std::string err)>([this](std::string err){
         m_lastError << err ;
@@ -81,21 +83,21 @@ bool ClientLogic::HandelRegistrationApproved()
 bool ClientLogic::SendPublicKeyToServer(uint8_t* key, size_t size)
 {
 
+    // build message
+    auto request = PublicKeyRequestMessage(m_id, m_name);
+
+
+    m_WaitingForResponse = true;
+    AddMessageToQueue(reinterpret_cast<uint8_t*>(&request), sizeof(request));
+    return true;
 }
 
 bool ClientLogic::HandelSymmetricKeyResponseFromServer()
 {
-    // build message
-
-
-
-    m_WaitingForResponse = true;
-    AddMessageToQueue();
 
 }
 void ClientLogic::AddMessageToQueue(uint8_t* buff, size_t size)
 {
-    //std::pair<uint8_t*, size_t> newMessage(buff,size);
     m_MessageQueue.emplace(std::pair(buff,size));
     SendNextMessage();
 
@@ -107,7 +109,10 @@ bool ClientLogic::SendEncryptedFileToServer(uint8_t* file, size_t size)
     // fileHandler->GetEncryptedFile(uint8_t* withThisAesKey, std::string fileName)
 
 }
+bool ClientLogic::WaitForResponse(ResponseCode expectedResponse)
+{
 
+}
 bool ClientLogic::SendNextMessage()
 {
     if(m_WaitingForResponse == false && m_socketHandler->isOpen())
@@ -125,4 +130,22 @@ bool ClientLogic::SendNextMessage()
     }
 }
 
-bool Client
+bool ClientLogic::SendMessageToChannel(uint8_t* buff, size_t length) {
+    if(m_socketHandler->isOpen())
+    {
+        m_socketHandler->Write(buff, length);
+    }
+}
+
+bool ClientLogic::SetClientId(ClientID id) {
+    if(m_id.isEmpty())
+    {
+        m_id = id;
+        return true;
+    }
+    else
+    {
+        m_lastError << "Id Already set";
+        return false;
+    }
+}
