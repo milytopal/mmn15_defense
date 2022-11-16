@@ -2,6 +2,11 @@
 
 #include <string>
 
+#include <modes.h>
+#include <aes.h>
+#include <filters.h>
+
+#include <stdexcept>
 
 class AESWrapper
 {
@@ -18,6 +23,7 @@ public:
     ~AESWrapper();
 
     const unsigned char* getKey() const;
+    static CryptoPP::RandomNumberGenerator gener;
 
     std::string encrypt(const char* plain, unsigned int length);
     std::string decrypt(const char* cipher, unsigned int length);

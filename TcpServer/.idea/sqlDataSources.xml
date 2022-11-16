@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DdlMappings">
+    <mapping uuid="5cc26f45-4da8-43f5-b140-6f69bcfaf066" name="server Mapping">
+      <data-sources db="8d132d01-430b-4f66-8676-f91c9336250e" ddl="747f2230-50ef-4f40-aa88-3ff6821426a0" />
+      <scope>
+        <node kind="database" negative="1">
+          <node kind="schema" negative="1" />
+        </node>
+      </scope>
+    </mapping>
+  </component>
+  <component name="SqlDataSourceStorage">
+    <option name="dataSources">
+      <list>
+        <State>
+          <option name="id" value="747f2230-50ef-4f40-aa88-3ff6821426a0" />
+          <option name="name" value="DDL data source" />
+          <option name="languageId" value="SQLite" />
+          <option name="urls">
+            <array>
+              <option value="file://$PROJECT_DIR$/server.db" />
+            </array>
+          </option>
+        </State>
+      </list>
+    </option>
+  </component>
+</project>

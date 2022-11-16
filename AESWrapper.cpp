@@ -1,10 +1,5 @@
 #include "AESWrapper.h"
 
-#include <modes.h>
-#include <aes.h>
-#include <filters.h>
-
-#include <stdexcept>
 //#include <immintrin.h>	// _rdrand32_step
 
 
@@ -14,7 +9,9 @@ unsigned char* AESWrapper::GenerateKey(unsigned char* buffer, unsigned int lengt
 #ifdef WIN32
         //_rdrand32_step(reinterpret_cast<unsigned int*>(&buffer[i]));
 #else
-        // do nothing for now TODO: find rand function
+        // do nothing for now TODO: find rand function - M.T
+          //  buffer[i] = reinterpret_cast<unsigned char>(gener.GenerateByte());
+        //gener.GenerateBlock(buffer, length);    // Test Which One To Use
 #endif
         return buffer;
 }

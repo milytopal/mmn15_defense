@@ -3,6 +3,8 @@ import socket
 import threading
 import crc
 import selectors
+
+import keys_handler
 import protocol
 import database
 import logging as log
@@ -12,6 +14,7 @@ import logging as log
 active_connections = 0
 
 class Server:
+    DATABASE = 'server.db'
     SERVER_VERSION = 3
     MAX_NAME_LEN = 65536
     RECONNECTION_TIME = 3
@@ -23,6 +26,7 @@ class Server:
         self.database = database.Database(Server.DATABASE)
         self.lastErr = ""  # Last Error description.
         # all functions get connection and data from read function
+        self.conn = ""
         self.requestHandle = {
             protocol.RequestCode.REQUEST_REGISTRATION.value: self.handleRegistrationRequest,
             protocol.RequestCode.REQUEST_PUBLIC_KEY.value: self.handlePublicKeyRequest,
@@ -39,19 +43,29 @@ class Server:
         conn, addr = sock.accept() # Should be ready
         print('accepted', conn, 'from', addr)
         conn.setblocking(False)
+        self.conn = conn
         self.sel.register(conn, selectors.EVENT_READ, self.read)
 
     def read(self, conn, mask):
-        data = conn.recv(1024) # Should be ready
+        log.info("a client has connected")
+        data = conn.recv(1024)  # Should be ready
         if data:
-            print('echoing', repr(data), 'to', conn)
-            conn.send(data) # Hope it won't block
-        else:
-            print('closing', conn)
-            self.sel.unregister(conn)
-            conn.close()
+            requestHeader = protocol.RequestHeader()
+            success = False
+            if not requestHeader.unpack(data):
+                log.error("Failed to parse request header!")
+            else:
+                if requestHeader.code in self.requestHandle.keys():
+                    success = self.requestHandle[requestHeader.code](conn, data)  # invoke corresponding handle.
+            if not success:  # return generic error upon failure.
+                responseHeader = protocol.ResponseHeader(protocol.ResponseCode.REGISTRATION_FAILED.value)
+                self.write(conn, responseHeader.pack())
+        self.sel.unregister(conn)
+        conn.close()
+        print('closing', conn)
 
-    def write(self, conn, data): #TODO: implement
+
+    def write(self, conn, data):    #TODO: implement
         """ Sends a response to client """
         size = len(data)
         bytesSent = 0
@@ -66,24 +80,35 @@ class Server:
                 conn.send(send)
                 bytesSent += len(send)
             except Exception as e:
-                log.error("Failed to send response to " + conn + "Err: " + str(e)) # todo: check how to improve
+                log.error("Failed to send response to " + conn + "Err: " + str(e))  # todo: check how to improve
                 return False
         log.info("Response sent successfully.")
         return True
 
     def run(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.s:
-            self.s.bind(('localhost', 1234))
-            self.s.listen(15)
-            self.s.setblocking(False)
-            # register selector to events
-            self.sel.register(self.s, selectors.EVENT_READ, self.accept)
-
-            while True:
+        self.database.initialize()
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.s:
+                self.s.bind(('', self.port))
+                self.s.listen(15)
+                self.s.setblocking(False)
+                # register selector to events
+                if self.sel.register(self.s, selectors.EVENT_READ, self.accept):
+                    print("registered successfully")
+        except Exception as e:
+            self.lastErr = e
+            print(e)
+        print(f"Server is listening for connections on port {self.port}..")
+        while True:
+            try:
                 events = self.sel.select()
                 for key, mask in events:
                     callback = key.data
                     callback(key.fileobj, mask)
+            except Exception as e:
+                log.exception(f"Server main loop exception: {e}")
+
+
 
 # regustration request from client - saves information to db
     def handleRegistrationRequest(self, conn, data):
@@ -93,25 +118,28 @@ class Server:
             log.error("Registration Request: Failed parsing request.")
             return False
         try:
-            if not request.name.isalnum():
-                log.error(f"Registration Request: Invalid requested username ({request.name}))")
+            if not request.name.isascii():
+                log.error(f"Registration Request: Invalid requested username \"{request.name}\"")
+                self.write(conn, response.pack())
+                return False
             elif self.database.clientUsernameExists(request.name):
-                log.error(f"Registration Request: Username ({request.name}) already exists.")
-            self.write(conn, response.pack())
-            return False
+                log.error(f"Registration Request: Username \"{request.name}\" already exists.")
+                self.write(conn, response.pack())   # send fail opcode
+                return False
         except:
             log.error("Registration Request: Failed to connect to database.")
-            self.write(conn, response.pack())
+            self.write(conn, response.pack())   # send fail opcode
             return False
 
-        clnt = database.addClient(request.name) # todo: continue handle adding client to db
-        if not self.database.storeClient(clnt):
+        clnt = self.database.addClient(request.name)  # todo: continue handle adding client to db
+        if not clnt:
             log.error(f"Registration Request: Failed to store client {request.name}.")
-            self.write(conn, response.pack())
+            self.write(conn, response.pack())   # send fail opcode
             return False
         log.info(f"Successfully registered client {request.name}.")
-        response = protocol.RegistrationFailedResponse()    # change to successful registration
-        response.clientID = clnt.ID
+        response = protocol.RegistrationSucceededResponse()    # change to successful registration
+        response.clientID = clnt.id
+        print(response)
         return self.write(conn, response.pack())
 
     def handlePublicKeyRequest(self, conn, data):
@@ -120,21 +148,31 @@ class Server:
         response = protocol.RegistrationFailedResponse() # assume failure until validated
         if not request.unpack(data):
             log.error("PublicKey Request: Failed to parse request!")
+            return False
         if not self.database.clientExists(request.header.clientID):
             log.error("PublicKey Request: Client does not exists!")
             self.write(conn, response.pack()) # sending registartion failed to client
+            return False
         key = self.database.setClientsPublicKey(request.header.clientID, request.publicKey)
         if not key:
             log.error(f"PublicKey Request: Failed to set public key.")
             self.write(conn, response.pack()) # sending registartion failed to client
             return False
+        rsa_key = request.publicKey
         # todo: handle generating symmetric key
+        symmetricKey = self.database.setClientsSymmetricKey(request.header.clientID)
+        if not symmetricKey:
+            log.error(f"Failed to generate symmetric key for client {request.header.clientID}")
+            return False
         response = protocol.PublicKeyResponse()     # Client exists
         response.clientID = request.header.clientID
-        response.symmetricKey = self.database.getClientsSymmetricKey(response.clientID)
-        response.header.payloadSize = protocol.CLIENT_ID_SIZE + protocol.PUBLIC_KEY_SIZE
+        encrypted_aes = keys_handler.encryptAesKeyWithRsaPublic(symmetricKey, rsa_key)
+        response.symmetricKey = encrypted_aes
+        response.header.payloadSize = protocol.CLIENT_ID_SIZE + protocol.SYMMETRIC_KEY_SIZE
+        print(response)
         log.info(f"Public Key response was successfully built to clientID ({request.header.clientID}).")
         return self.write(conn, response.pack())
+
 
     def handleSendFileRequest(self, conn, data):
         request = protocol.RequestToSendFile()
@@ -149,11 +187,12 @@ class Server:
         response.clientID = request.header.clientID
         response.fileName = request.fileName
         # todo: add decryption step - need to calculate after decryption
-        fileData = bytes(request.fileContent)
+        self.database.storeFile(request.header.clientID, request.fileName, request.fileContent)
+        fileData = request.fileContent
         calc = crc.crc32()
         calc.update(fileData)
         response.checksum = calc.digest()   # fill crc
-
+        print(response)
         self.write(conn, response.pack())
 
 

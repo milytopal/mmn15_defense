@@ -2,21 +2,18 @@
 // Created by Mily Topal on 01/10/2022.
 //
 
+#include <iostream>
 #include "TcpClientChannel.h"
 
 TcpClientChannel::TcpClientChannel(std::string name, bool reconnect, std::string address,
                                    std::string port):
         m_name(std::move(name)),
+        m_address(address),
+        m_port(port),
         m_isOpen(false)
 {
-    m_ioContext = new io_context;
-    m_resolver  = new tcp::resolver(*m_ioContext);
-    m_socket    = new tcp::socket(*m_ioContext);
 
-    ReportErrorToClient = [](std::string errTopic){};
-
-}
-TcpClientChannel::TcpClientChannel() {
+    ReportErrorToClient.operator=([](std::string errTopic){});
 
 }
 
@@ -45,12 +42,16 @@ void TcpClientChannel::Close()
 
 }
 
-bool TcpClientChannel::Open()
-{
+bool TcpClientChannel::Open() {
     m_exitThread = false;
+    try {
+        Close();
+        m_ioContext = new io_context;
+        m_resolver  = new tcp::resolver(*m_ioContext);
+        m_socket    = new tcp::socket(*m_ioContext);
 
-    boost::asio::connect(*m_socket, m_resolver->resolve(m_address, m_port, tcp::resolver::query::canonical_name));
-    m_socket->non_blocking(false);  // non blocking socket
+        boost::asio::connect(*m_socket, m_resolver->resolve(m_address, m_port, tcp::resolver::query::canonical_name));
+        m_socket->non_blocking(false);  // blocking socket
 
 //    if(m_socket->is_open())
 //    {
@@ -62,6 +63,12 @@ bool TcpClientChannel::Open()
 //
 //    }
     return (m_isOpen = m_socket->is_open());
+    }
+    catch(std::exception& e)
+    {
+        std::cerr << "channel returned with an error: "<< e.what() << std::endl;
+        //return false;
+    }
 }
 /* Read:    called only by ClientLogic
  * reads full message into buffer
@@ -83,7 +90,7 @@ bool TcpClientChannel::Read(uint8_t* const buffer, const size_t size ,size_t& by
         return false;     // Error. Failed receiving and shouldn't use buffer.
     payloadSizeLeft = GetHeader(tempBuffer, expectedCode);
     header = reinterpret_cast<ResponseHeader&>(tempBuffer);
-    if(payloadSizeLeft == 0 && header.code != REGISTRATION_FAILED && header.code != MSG_RECEIVED )
+    if(payloadSizeLeft == 0 && header.code != (int)ResponseCode::REGISTRATION_FAILED && header.code != (int)ResponseCode::MSG_RECEIVED )
     {
         // GetHeader returned an error
         return false;
@@ -193,10 +200,11 @@ bool TcpClientChannel::Write(uint8_t* buffer, size_t length)
     return true;
 }
 
+
 void TcpClientChannel::setNewDataSignalCallBack(std::function<void (std::string errTopic)> callback) {
     if(callback != nullptr)
     {
-        ReportErrorToClient = callback;
+        ReportErrorToClient.operator=(callback);
     }
     else
     {

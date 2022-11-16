@@ -283,10 +283,10 @@ class crc32:
             crc = crctab[(crc >> 24) ^ c] ^ ((crc << 8) & 0xFFFFFFFF)
             n >>= 8
         return UNSIGNED(~crc)
-
-
-with open(r"D:\MMN15\Client\test.txt", "rb") as fd:
-    digest = crc32()
-    while buf := fd.read(4096):
-        digest.update(buf)
-    print(digest.digest())
+#
+#
+# with open(r"D:\MMN15\Client\test.txt", "rb") as fd:
+#     digest = crc32()
+#     while buf := fd.read(4096):
+#         digest.update(buf)
+#     print(digest.digest())

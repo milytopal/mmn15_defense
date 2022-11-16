@@ -7,7 +7,7 @@
 
 #include <iostream>
 #include <functional>
-#include "ServerConfig.h"
+#include "ConfigManager.h"
 #include "ClientLogic.h"
 
 class ClientManager {
@@ -15,35 +15,20 @@ class ClientManager {
 public:
     ClientManager();
     void clientStop(const std::string& error) const;
-
+    void Initialize();
+    void Run();
 
 private:
 
-    class ResponseTrigger
-    {
-    public:
-        enum Triggers
-        {
-
-        };
-        std::function<void>* m_ActionOnTrigger = nullptr;
-
-
-
-    };
-
-
-    ClientLogic m_clientLogic;
-    void Initialize();
-    void SetTriggerResponse();
-
-
-
+    ClientLogic* m_clientLogic = nullptr;
 
     bool m_registered = false;
 
     string GetFileName();
 
+    std::function<void (std::string)> m_clientError;
+
     string GetClientName();
+
 };
 

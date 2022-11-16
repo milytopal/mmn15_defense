@@ -56,6 +56,8 @@ class RequestHeader:
             self.__init__()  # flush values
             return False
 
+    def __str__(self):
+        return f"Client's id: {self.clientID}, version: {self.version}, code: {self.code}, payload size: {self.payloadSize} "
 
 class ResponseHeader:
     def __init__(self, code):
@@ -70,6 +72,12 @@ class ResponseHeader:
             return struct.pack("<BHI", self.version, self.code, self.payloadSize)
         except:
             return b""
+
+    def __str__(self):
+        return f"version: {self.version}, code: {self.code}, payload size: {self.payloadSize} "
+
+
+
 
 #----------------- REQUESTS FROM CLIENT --------------
 class RegistrationRequest:
@@ -90,6 +98,9 @@ class RegistrationRequest:
             self.name = b""
             return False
 
+    def __str__(self):
+        return "RegistrationRequest:\n" + str(self.header) + f"\nClient's name: {self.name}"
+
 
 
 class PublicKeyRequest:
@@ -107,13 +118,20 @@ class PublicKeyRequest:
             nameData = data[self.header.SIZE:self.header.SIZE + CLIENT_NAME_SIZE]
             self.clientName = str(struct.unpack(f"<{CLIENT_NAME_SIZE}s", nameData)[0].partition(b'\0')[0].decode('utf-8'))
             offset = self.header.SIZE + CLIENT_NAME_SIZE
-            publicKeyData = data[offset:offset + PUBLIC_KEY_SIZE]
+            print(f"offset:  {offset} , payloadsize: {self.header.payloadSize}"
+                  f" key size: {self.header.payloadSize - CLIENT_NAME_SIZE} message size: {self.header.SIZE + self.header.payloadSize}"
+                  f" left: {self.header.SIZE + self.header.payloadSize - offset}")
+
+            publicKeyData = data[offset:]
             self.publicKey= struct.unpack(f"<{PUBLIC_KEY_SIZE}s", publicKeyData)[0]
             return True
         except:
             self.clientName = b""
             self.publicKey = b""
-            return False
+        return False
+
+    def __str__(self):
+        return "PublicKeyRequest:\n" + str(self.header) + f"\nClient's name: {self.clientName}\nPublicKey: {self.publicKey} "
 
 
 class RequestToSendFile:
@@ -129,12 +147,12 @@ class RequestToSendFile:
         if not self.header.unpack(data):
             return False
         try:
-            self.contentSize = struct.unpack("<I", data[self.header.SIZE:self.header.SIZE + 5])
-            offset = self.header.SIZE + 5
-            # trim the byte array after the nul terminating character.
+            self.contentSize = struct.unpack("<I", data[self.header.SIZE: self.header.SIZE + 4])[0]
+            offset = self.header.SIZE + 4
+            # trim the byte array after the null terminating character.
             fileNameData = data[offset:offset + FILE_NAME_SIZE]
             self.fileName = str(struct.unpack(f"<{FILE_NAME_SIZE}s", fileNameData)[0].partition(b'\0')[0].decode('utf-8'))
-            offset+=FILE_NAME_SIZE
+            offset += FILE_NAME_SIZE
             bytesRead = packetSize - offset
             if bytesRead > self.contentSize:
                 bytesRead = self.contentSize
@@ -144,7 +162,7 @@ class RequestToSendFile:
                 dataSize = len(data)
                 if (self.contentSize - bytesRead) < dataSize:
                     dataSize = self.contentSize - bytesRead
-                self.content += struct.unpack(f"<{dataSize}s", data[:dataSize])[0]
+                self.fileContent += struct.unpack(f"<{dataSize}s", data[:dataSize])[0]
                 bytesRead += dataSize
             return True
         except:
@@ -152,6 +170,11 @@ class RequestToSendFile:
             self.fileName = b""
             self.fileContent = b""
             return False
+
+    def __str__(self):
+        return "RequestToSendFile:\n" + str(self.header) + f"\nContent size: {self.contentSize}" \
+                                                           f"\nfile name: {self.fileName} " \
+                                                           f"\nfile Content:{self.fileContent}"
 
 
 class CrcStatusRequest:
@@ -175,6 +198,13 @@ class CrcStatusRequest:
             self.clientID = b""
             self.fileName = b""
             return False
+
+    def __str__(self):
+        return "CrcStatusRequest:\n" + str(self.header) + f"\nClient's ID: {self.clientID}" \
+                                                          f"\nFile name: {self.fileName}"
+
+
+
 
 # todo: maybe redundant
 class CrcValidRequest(CrcStatusRequest):
@@ -206,6 +236,11 @@ class RegistrationSucceededResponse:
         except:
             return b""
 
+    def __str__(self):
+        return "RegistrationSucceededResponse:\n" + str(self.header) + f" Client ID: {self.clientID}"
+
+
+
 
 class RegistrationFailedResponse:
     def __init__(self):
@@ -218,6 +253,8 @@ class RegistrationFailedResponse:
             return data
         except:
             return b""
+    def __str__(self):
+        return "RegistrationFailedResponse:\n" + str(self.header)
 
 
 class PublicKeyResponse:
@@ -236,6 +273,13 @@ class PublicKeyResponse:
             return data
         except:
             return b""
+
+
+    def __str__(self):
+        return "PublicKeyResponse:\n" + str(self.header) + f"\nClient's ID: {self.clientID}" \
+                                                           f"\nSymmetricKey: {self.symmetricKey} "
+
+
 
 
 class FileReceivedCrcValueResponse:
@@ -258,6 +302,15 @@ class FileReceivedCrcValueResponse:
             return data
         except:
             return b""
+
+
+    def __str__(self):
+        return "FileReceivedCrcValueResponse:\n" + str(self.header) + f"\nClient's ID: {self.clientID}" \
+                                                           f"\nContent size: {self.contentSize}" \
+                                                                      f"\nFile name: {self.fileName}" \
+                                                                      f"\nCheckSum: {self.checksum} "
+
+
 
 
 class ReceivingApprovedResponse:

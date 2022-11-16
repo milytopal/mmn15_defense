@@ -12,27 +12,40 @@ ClientManager::ClientManager() : m_registered(false)
 
 
 std::string ClientManager::GetFileName() {
-    return ServerConfig::Instance().GetTransferInfo().filePath;
+    return ConfigManager::GetTransferInfo().filePath;
 }
 
 void ClientManager::Initialize() {
 
-    if (!ServerConfig::Instance().GetTransferInfo().name.empty())
+    m_clientError = (std::function<void(std::string)>([this](std::string err){
+        clientStop(err);
+    }));
+
+    if (ConfigManager::Instance().GetTransferInfo().name.empty())
     {
-        //clientStop(m_clientLogic.getLastError());
+        clientStop(ConfigManager::GetLastError());
     }
- //   m_registered = m_clientLogic.parseClientInfo();
+    if(ConfigManager::Instance().isRegistered())
+    {
+        auto info = ConfigManager::GetClientInfo();
+        m_clientLogic = new ClientLogic(info.name,info.uuid, info.RSAPrivatekey, true);
+    }
+    else
+    {
+        auto info = ConfigManager::GetTransferInfo();
+        m_clientLogic = new ClientLogic(info.name, false);
+    }
+
+    m_clientLogic->SetErrorCallback(m_clientError);
 
 
 
 }
 
-std::string ClientManager::GetClientName() {
-    return ServerConfig::Instance().GetTransferInfo().name;
+void ClientManager::Run()
+{
+    m_clientLogic->Run();
 }
-
-
-
 /**
  * Print error and exit client.
  */
@@ -42,3 +55,4 @@ void ClientManager::clientStop(const std::string& error) const
     //pause();
     exit(1);
 }
+

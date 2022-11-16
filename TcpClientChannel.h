@@ -14,7 +14,6 @@ class TcpClientChannel {
 public:
     TcpClientChannel(std::string name, bool reconnect, std::string address,
                      std::string port);
-    TcpClientChannel();
     ~TcpClientChannel();
 
     void Close();
@@ -23,17 +22,14 @@ public:
     bool isOpen();
     bool Write(uint8_t* buffer, size_t length);
     void setNewDataSignalCallBack(std::function<void (std::string errTopic)> callback);
-
     std::function<void (std::string errTopic)> ReportErrorToClient;
-
-private:
     /* read full response message from server into buffer */
     bool Read(uint8_t* const buffer, const size_t size, size_t& bytesRed, ResponseCode expectedCode);
 
 
 
 
-private:
+protected:
     std::string    m_name;
     std::string    m_address;
     std::string    m_port;

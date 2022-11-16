@@ -13,8 +13,8 @@ set(SOURCE_FILES main.cpp
         ClientLogic.h
         RSAWrapper.cpp
         RSAWrapper.h
-        ServerConfig.cpp
-        ServerConfig.h
+        ConfigManager.cpp
+        ConfigManager.h
         ClientManager.cpp
         ClientManager.h
         Base64Wrapper.cpp

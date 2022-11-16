@@ -6,24 +6,23 @@
 #include <fstream>
 #include <filesystem>
 
-#include "ServerConfig.h"
+
 class FileHandler {
 public:
-    FileHandler();
+    FileHandler(std::string filePath);
     ~FileHandler();
-
-
-    bool Read();
-    bool Write();
-
-
+    bool Read(uint8_t* buffer, size_t length, std::ios_base::openmode mode = std::ios_base::in);
+    bool Write(std::string& content);
+    bool WriteAtLine(std::string content, unsigned int lineNum, std::ios_base::openmode mode = std::ios_base::out);
+    std::string GetLine(unsigned int lineNum);
+    size_t GetFileLength();
 private:
     /* path to file for transfer */
     std::string m_pathTofFile;
+    std::fstream* m_pFile = nullptr;
 
 private:
     void initialize();
-
 
 
 };

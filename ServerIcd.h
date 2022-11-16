@@ -38,37 +38,35 @@ enum ResponseCode
     MSG_RECEIVED                = 2104
 };
 
-enum MessageType   //todo: check if needed
-{
-    MSG_SYMMETRIC_KEY_REQUEST = 1,
-    MSG_SYMMETRIC_KEY_SEND    = 2,
-    MSG_TEXT                  = 3,
-    MSG_FILE                  = 4
-};
-
 
 #pragma pack(push, 1)
 
 struct ClientID
 {
-    uint8_t uuid[CLIENT_ID_SIZE];
-    ClientID() : uuid{ 0 } {}
-
+    uint8_t uuid[CLIENT_ID_SIZE] = {0};
     bool operator==(const ClientID& otherID) const {
         for (size_t i = 0; i < CLIENT_ID_SIZE; ++i)
             if (uuid[i] != otherID.uuid[i])
                 return false;
         return true;
-    }
+    };
 
     bool operator!=(const ClientID& otherID) const {
         return !(*this == otherID);
-    }
+    };
 
     bool isEmpty() {
         auto tmp = std::bitset<CLIENT_ID_SIZE>(uuid);
         return tmp.none();
-    }
+    };
+
+    ClientID() =default;
+    explicit ClientID(const std::string& id){
+        if(id.length() == CLIENT_ID_SIZE)
+        {
+            strncpy((char*)uuid, id.c_str(), CLIENT_ID_SIZE);
+        }
+    };
 };
 
 struct ClientName
@@ -89,6 +87,9 @@ struct PublicKey
         auto tmp = std::bitset<PUBLIC_KEY_SIZE>(publicKey);
         return tmp.none();
     }
+    PublicKey() = default;
+    explicit PublicKey(const std::string& key){strncpy((char*)publicKey, key.c_str(), PUBLIC_KEY_SIZE);};
+
 };
 
 struct SymmetricKey
@@ -97,7 +98,17 @@ struct SymmetricKey
     bool isEmpty() {
         auto tmp = std::bitset<SYMMETRIC_KEY_SIZE>(symmetricKey);
         return tmp.none();
-    }
+    };
+
+    SymmetricKey&operator=(SymmetricKey& key)
+    {
+        return *this;
+    };
+    SymmetricKey&operator=(std::string key)
+    {
+        memcpy(this->symmetricKey, key.c_str(), SYMMETRIC_KEY_SIZE);
+        return *this;
+    };
 };
 
 
@@ -109,7 +120,7 @@ struct FileName
 struct CRCStatus{
     ClientID clientId;
     FileName fileName = {0};
-    CRCStatus(const ClientID& id) : clientId(id){}
+    explicit CRCStatus(const ClientID& id) : clientId(id){}
 };
 ///////////////////////// Message Headers ////////////////////////
 struct RequestHeader
@@ -118,7 +129,7 @@ struct RequestHeader
     uint8_t version;
     uint16_t code;
     uint32_t payloadSize;
-    RequestHeader(const uint16_t reqCode) : version(CLIENT_VERSION), code(reqCode), payloadSize(0) {}
+    explicit RequestHeader(const uint16_t reqCode) : version(CLIENT_VERSION), code(reqCode), payloadSize(0) {}
     RequestHeader(const ClientID& id, const uint16_t reqCode) : clientId(id), version(CLIENT_VERSION), code(reqCode), payloadSize(0) {}
 };
 
@@ -160,9 +171,9 @@ struct FileReceivedValidCrcResponseMessage
     struct
     {
         ClientID   clientId;
-        uint32_t contentSize;
+        uint32_t contentSize = 0;
         FileName  fileName;
-        uint32_t checksum;
+        uint32_t checksum = 0;
     }payload;
 };
 
@@ -180,7 +191,9 @@ struct RegistrationRequestMessage /* Server ignores ClientID feild in header*/
     {
         ClientName clientName;
     }payload;
-    RegistrationRequestMessage(const ClientName name) : header(REQUEST_REGISTRATION) { payload.clientName = name;} // server ignores ClientID
+    explicit RegistrationRequestMessage(const ClientName name) : header(REQUEST_REGISTRATION) {
+        payload.clientName = name;
+        header.payloadSize = sizeof (payload);} // server ignores ClientID
 };
 
 struct PublicKeyRequestMessage
@@ -189,10 +202,14 @@ struct PublicKeyRequestMessage
     struct
     {
         ClientName clientName;
-        PublicKey  ServerPublicKey;
+        PublicKey  clientsPublicKey;
     }payload;
+
     PublicKeyRequestMessage(const ClientID& id, const ClientName name) : header(id, REQUEST_TO_SEND_FILE)
-    {payload.clientName = name;}
+    {
+        payload.clientName = name;
+        header.payloadSize = sizeof (payload);
+    }
 };
 
 struct RequestToSendFileMessage
@@ -203,26 +220,28 @@ struct RequestToSendFileMessage
         FileName fileName;
         uint8_t* data = nullptr;                  // unknown size of file
     }payload;
-    RequestToSendFileMessage(const ClientID& id) : header(id, REQUEST_TO_SEND_FILE) {}
+    explicit RequestToSendFileMessage(const ClientID& id) : header(id, REQUEST_TO_SEND_FILE) {}
 };
 
 struct CrcValidRequestMessage {
     RequestHeader header;
     CRCStatus payload;
-    CrcValidRequestMessage(const ClientID& id) : header(id, REQUEST_CRC_VALID),payload(id) {}
+    explicit CrcValidRequestMessage(const ClientID& id) : header(id, REQUEST_CRC_VALID),payload(id) {header.payloadSize = sizeof (payload);}
 };
 
 struct CrcNotValidResendRequestMessage {
     RequestHeader header;
     CRCStatus payload;
-    CrcNotValidResendRequestMessage(const ClientID& id) : header(id, INVALID_CRC_RESEND_REQUEST),payload(id) {}
+    explicit CrcNotValidResendRequestMessage(const ClientID& id) : header(id, INVALID_CRC_RESEND_REQUEST),payload(id) {header.payloadSize = sizeof (payload);}
 };
 
 
 struct CrcNotValidAbortRequestMessage {
     RequestHeader header;
     CRCStatus payload;
-    CrcNotValidAbortRequestMessage(const ClientID& id) : header(id, INVALID_CRC_ABORT) ,payload(id) {}
+    explicit CrcNotValidAbortRequestMessage(const ClientID& id) : header(id, INVALID_CRC_ABORT) ,payload(id) {
+        header.payloadSize = sizeof (payload);
+    }
 };
 
 

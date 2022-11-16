@@ -9,60 +9,82 @@
 #include "ServerIcd.h"
 #include "FileHandler.h"
 #include "RSAWrapper.h"
+#include <map>
 #include <queue>
+#include <unordered_map>
+#include "ConfigManager.h"
+
+typedef std::pair<uint8_t *, size_t > RequestMsg;
+
 class ClientLogic {
 public:
-    struct Client
-    {
-        ClientID     id;
-        std::string   username;
-        PublicKey    publicKey;
-        bool          publicKeySet    = false;  // added function in struct - can be removed
-        SymmetricKey symmetricKey;
-        bool          symmetricKeySet = false;  // added function in struct - can be removed
-    };
-
-    ClientLogic(std::string name);
-
+    ClientLogic(std::string& name, bool isRegistered);
+    ClientLogic(std::string& name, std::string& uuid, std::string& privateKey, bool isRegistered);
     ~ClientLogic();
-    ClientID m_id;
     std::string GetLastError();
     void SubscribeToChannelError();
-    std::function<void (std::string err)> subscribeToChannelError;
+
+    void initialize();
+
+    void Run();
+
+    void SetErrorCallback(std::function<void(string)> callback);
+
+    std::function<void (std::string err)>* subscribeToChannelError;
+    std::function<void (std::string err)> PublishError;
+
 protected:
     bool SetClientId(ClientID id);
-
+    std::unordered_map<ResponseCode ,std::function<void(uint8_t* data, size_t size)>> m_HandlersMap;
 
 private:
-    std::map<MessageType, std::string> m_msgDescription = {
-            {MSG_SYMMETRIC_KEY_REQUEST, "symmetric key request"},
-            {MSG_SYMMETRIC_KEY_SEND,    "symmetric key"},
-            {MSG_TEXT,                  "text message"},
-            {MSG_FILE,                  "file"}
-    };
+    // Clients Traits
+    ClientName      m_name;
+    ClientID        m_id;
+    PublicKey       m_publicKey;
+    SymmetricKey    m_symmetricKey;
+    std::string     m_privateKey;
+    bool            m_isRegistered = false;
 
-    ClientName m_name;
-    bool ParseServeInfo();
-    Client              m_self;           // self symmetric key invalid.
-
-    std::vector<Client> m_clients;
     FileHandler* m_fileHandler;
     TcpClientChannel*      m_socketHandler;
     //RSAWrapper*   m_rsaDecryptor;
-    std::queue<std::pair<uint8_t*, size_t>> m_MessageQueue;
+    std::unique_ptr<uint8_t> m_fileBuffer = nullptr;
+    std::deque<RequestMsg> m_MessageQueue;
     bool m_WaitingForResponse = false;
     void SetUpChannel();
     std::stringstream  m_lastError;
+    std::stringstream &operator<<(string& log);
+
+
+
+    void BuildRsaKeySet();
+
+    void CreateClientsRegistrationFile();
+
+    void printBuff(std::string buffname ,void* buff, size_t length);
+
     void clearError();
-    static int m_numOfAttempts;
+
+    int m_numOfAttempts;
 
     void AddMessageToQueue(uint8_t *buff, size_t size);
 
+    bool ParseServeInfo();
+
+    /////// Function For Handling Responses from Server ///////
+    void HandelRegistrationFailed(uint8_t * data, size_t size);
+
+    void HandelSymmetricKeyResponseFromServer(uint8_t * data, size_t size);
+
+    void HandelRegistrationApproved(uint8_t * data, size_t size);
+
+    void HandelMessageReceivedWithCrc(uint8_t * data, size_t size);
+
+    /* Handling ResponseCode 2104 */
+    void EndSession();
+    /////// Functions for Requests Sending //////////
     bool SendPublicKeyToServer(uint8_t *key, size_t size);
-
-    bool HandelSymmetricKeyResponseFromServer();
-
-    bool HandelRegistrationApproved();
 
     bool SendRegistrationRequest();
 
@@ -73,5 +95,7 @@ private:
     bool SendNextMessage();
 
     bool WaitForResponse(ResponseCode expectedResponse);
+
+    void printQueue();
 };
 
