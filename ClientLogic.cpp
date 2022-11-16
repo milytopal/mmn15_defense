@@ -37,7 +37,7 @@ void ClientLogic::printBuff(std::string buffname ,void* buff, size_t length)
 // Constructor if Client Registered
 ClientLogic::ClientLogic(std::string& name, std::string& uuid, std::string& privateKey, bool isRegistered):
 m_name(ClientName(name)),
-m_id(ClientID(uuid)),
+m_id(ClientID((uint8_t*)uuid.c_str())),
 m_privateKey(privateKey),
 m_isRegistered(isRegistered),
 m_socketHandler(),
@@ -68,11 +68,11 @@ void ClientLogic::initialize()
 
 
     m_HandlersMap = {
-            {ResponseCode::REGISTRATION_SUCCEEDED, [this](uint8_t* data, size_t size) { ClientLogic::HandelRegistrationApproved(data, size); m_MessageQueue.pop_front();}},
+            {ResponseCode::REGISTRATION_SUCCEEDED, [this](uint8_t* data, size_t size) { m_MessageQueue.pop_front(); ClientLogic::HandelRegistrationApproved(data, size); }},
             {ResponseCode::REGISTRATION_FAILED,    [this](uint8_t* data, size_t size) { ClientLogic::HandelRegistrationFailed(data, size); }},
-            {ResponseCode::PUBLIC_KEY_RECEIVED,    [this](uint8_t* data, size_t size) { ClientLogic::HandelSymmetricKeyResponseFromServer(data, size); m_MessageQueue.pop_front();}},
-            {ResponseCode::MSG_RECEIVED_CRC_VALID, [this](uint8_t* data, size_t size) { ClientLogic::HandelMessageReceivedWithCrc(data, size); m_MessageQueue.pop_front();}},
-            {ResponseCode::MSG_RECEIVED,           [this](uint8_t* data, size_t size) { ClientLogic::EndSession(); m_MessageQueue.pop_front();}}
+            {ResponseCode::PUBLIC_KEY_RECEIVED,    [this](uint8_t* data, size_t size) { m_MessageQueue.pop_front(); ClientLogic::HandelSymmetricKeyResponseFromServer(data, size);}},
+            {ResponseCode::MSG_RECEIVED_CRC_VALID, [this](uint8_t* data, size_t size) { m_MessageQueue.pop_front(); ClientLogic::HandelMessageReceivedWithCrc(data, size); }},
+            {ResponseCode::MSG_RECEIVED,           [this](uint8_t* data, size_t size) { m_MessageQueue.pop_front(); ClientLogic::EndSession(); }}
     };
 
     if(!m_isRegistered)
@@ -117,30 +117,32 @@ std::string ClientLogic::GetLastError() {
 // build Registration Message
 bool ClientLogic::SendRegistrationRequest()
 {
-    auto request = RegistrationRequestMessage(m_name);  // server ignores id field
+    RegistrationRequestMessage request(m_name);  // server ignores id field
+   // bool success = m_socketHandler->Write(reinterpret_cast<uint8_t*>(&request), sizeof(request));
     AddMessageToQueue(reinterpret_cast<uint8_t*>(&request), sizeof(RegistrationRequestMessage));
-
+    return true;
 }
 
 void ClientLogic::HandelRegistrationApproved(uint8_t * data, size_t size)
 {
+    m_WaitingForResponse = false;
     auto response = reinterpret_cast<RegistrationSucceededResponseMessage*>(data);
     SetClientId(ClientID(response->payload));
     // todo: handle saving uuid to file
     // todo: GenerateKey and send it
-    //SendPublicKeyToServer();
+    SendPublicKeyToServer();
 }
 
 // build PublicKeyMessage
-bool ClientLogic::SendPublicKeyToServer(uint8_t* key, size_t size)
+bool ClientLogic::SendPublicKeyToServer()
 {
+    m_WaitingForResponse = false;
     // build message
-    auto request = PublicKeyRequestMessage(m_id, m_name);
+    PublicKeyRequestMessage request(m_id, m_name);
     request.payload.clientName = m_name;
     request.payload.clientsPublicKey = m_publicKey;
 
 
-    m_WaitingForResponse = true;
     AddMessageToQueue(reinterpret_cast<uint8_t*>(&request), sizeof(request));
     return true;
 }
@@ -181,6 +183,8 @@ void ClientLogic::BuildRsaKeySet()
 
 void ClientLogic::HandelSymmetricKeyResponseFromServer(uint8_t * data, size_t size)
 {
+    m_WaitingForResponse = false;
+
     auto response = reinterpret_cast<PublicKeyResponseMessage*>(data);
     std::string tmpKey;
     tmpKey.copy((char*)&response->payload.symmetricKey, SYMMETRIC_KEY_SIZE); // todo: check if works
@@ -202,6 +206,8 @@ void ClientLogic::AddMessageToQueue(uint8_t* buff, size_t size)
 // build SendEncryptedFileMessage
 bool ClientLogic::SendEncryptedFileToServer(uint8_t* file, size_t size)
 {
+    m_WaitingForResponse = false;
+
     auto request = RequestToSendFileMessage(m_id);
     // fileHandler->GetEncryptedFile(uint8_t* withThisAesKey, std::string fileName)
     std::string fileTosend = ConfigManager::Instance().GetFileToSend();
@@ -251,6 +257,11 @@ bool ClientLogic::SendNextMessage()
 bool ClientLogic::SendMessageToChannel(uint8_t* buff, size_t length) {
     if(m_socketHandler->isOpen())
     {
+
+        uint8_t tempBuf[1024];
+        memcpy(tempBuf,buff,length);
+        auto header = reinterpret_cast<RequestHeader&>(tempBuf);
+        std::cout << "sent version = " << (int)header.version <<"\t code:" << (int)header.code << "\tpayloadSize: " << (int)header.payloadSize << std::endl;
         return m_socketHandler->Write(buff, length);
     }
     m_lastError << "Socket closed unexpectedly";
@@ -260,7 +271,7 @@ bool ClientLogic::SendMessageToChannel(uint8_t* buff, size_t length) {
 bool ClientLogic::SetClientId(ClientID id) {
     if(m_id.isEmpty())
     {
-        m_id = id;
+        memcpy(&m_id.uuid, &id.uuid,CLIENT_ID_SIZE);
         return true;
     }
     else
@@ -298,16 +309,26 @@ void ClientLogic::Run()
 {
     auto buffer = new uint8_t[1024];
     size_t bytesRed = 0;
-    ResponseCode* response;
-    ResponseHeader* header;
+    int response;
+    ResponseHeader header;
     if(m_socketHandler->Open())
     {
         SendRegistrationRequest();
 
-        m_socketHandler->Read(buffer,1024, bytesRed, ResponseCode::REGISTRATION_SUCCEEDED);
-        header = reinterpret_cast<ResponseHeader*>(buffer);
-        response = reinterpret_cast<ResponseCode*>(header->code);
-        m_HandlersMap.at(*response)(buffer, bytesRed);
+        while(!m_socketHandler->Read(buffer,1024, bytesRed, ResponseCode::REGISTRATION_SUCCEEDED))
+        {
+
+        }
+
+        header = reinterpret_cast<ResponseHeader&>(*buffer);
+        response = header.code;
+        if(response >= ResponseCode::REGISTRATION_SUCCEEDED && response <= ResponseCode::MSG_RECEIVED){
+            for (auto &it: m_HandlersMap) {
+                if (it.first == (response)) {
+                    it.second(buffer, header.payloadSize + sizeof(ResponseHeader));
+                }
+            }
+        }
     }
 }
 

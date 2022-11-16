@@ -27,7 +27,7 @@ void ClientManager::Initialize() {
     }
     if(ConfigManager::Instance().isRegistered())
     {
-        auto info = ConfigManager::GetClientInfo();
+        auto info = ConfigManager::Instance().GetClientInfo();
         m_clientLogic = new ClientLogic(info.name,info.uuid, info.RSAPrivatekey, true);
     }
     else

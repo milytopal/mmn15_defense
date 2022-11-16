@@ -53,21 +53,28 @@ bool TcpClientChannel::Open() {
         boost::asio::connect(*m_socket, m_resolver->resolve(m_address, m_port, tcp::resolver::query::canonical_name));
         m_socket->non_blocking(false);  // blocking socket
 
-//    if(m_socket->is_open())
-//    {
-//        m_isOpen = true;
+        boost::system::error_code errorCode;
+
+        std::thread(std::function<void()>([this]()
+              {
+                  run();
+              })).detach();
+        if(m_socket->is_open())
+        {
+            std::cout << "port open finalllyyyyyyy" << std::endl;
+            m_isOpen = true;
 //        std::thread(std::function<void()>([this]()
 //              {
 //                  run();
 //              })).detach();
-//
-//    }
-    return (m_isOpen = m_socket->is_open());
+
+        }
+        return (m_isOpen = true);
     }
     catch(std::exception& e)
     {
         std::cerr << "channel returned with an error: "<< e.what() << std::endl;
-        //return false;
+        return false;
     }
 }
 /* Read:    called only by ClientLogic
@@ -85,11 +92,12 @@ bool TcpClientChannel::Read(uint8_t* const buffer, const size_t size ,size_t& by
 
     uint8_t tempBuffer[PACKET_SIZE] = { 0 };
     boost::system::error_code err; // read() will not throw exception when error_code is passed as argument.
-    bytesRed = read(*m_socket, boost::asio::buffer(tempBuffer, PACKET_SIZE), err); // todo: might need to change size to packet size
+    bytesRed = boost::asio::read(*m_socket, boost::asio::buffer(tempBuffer, PACKET_SIZE), err); // todo: might need to change size to packet size
     if (bytesRed == 0)
         return false;     // Error. Failed receiving and shouldn't use buffer.
     payloadSizeLeft = GetHeader(tempBuffer, expectedCode);
-    header = reinterpret_cast<ResponseHeader&>(tempBuffer);
+    header = reinterpret_cast<ResponseHeader&>(*tempBuffer);
+
     if(payloadSizeLeft == 0 && header.code != (int)ResponseCode::REGISTRATION_FAILED && header.code != (int)ResponseCode::MSG_RECEIVED )
     {
         // GetHeader returned an error
@@ -101,7 +109,7 @@ bool TcpClientChannel::Read(uint8_t* const buffer, const size_t size ,size_t& by
         return true;    // no payload expected
     }
     bytesToRead = payloadSizeLeft;
-    const size_t copySize = (bytesToRead > bytesRed) ? bytesRed : bytesToRead;  // in case bytes red less than bytes to read
+    const size_t copySize = (bytesToRead > bytesRed) ? bytesRed : bytesToRead + sizeof(ResponseHeader);  // in case bytes red less than bytes to read
     memcpy(buffPtr, tempBuffer, copySize);
     buffPtr += copySize;
     bytesToRead = (bytesToRead < copySize) ? 0 : (bytesToRead - copySize);  // unsigned protection.
@@ -110,7 +118,7 @@ bool TcpClientChannel::Read(uint8_t* const buffer, const size_t size ,size_t& by
     {
         if (bytesToRead > PACKET_SIZE)
             bytesToRead = PACKET_SIZE;
-        bytesRed = read(*m_socket, boost::asio::buffer(tempBuffer, bytesToRead), err); // todo: might need to change size to packet size
+        bytesRed = boost::asio::read(*m_socket, boost::asio::buffer(tempBuffer, bytesToRead), err); // todo: might need to change size to packet size
         const size_t copySize = (bytesToRead > bytesRed) ? bytesRed : bytesToRead;  // in case bytes red less than bytes to read
         memcpy(buffPtr, tempBuffer, copySize);
         buffPtr += copySize;
@@ -126,7 +134,7 @@ size_t TcpClientChannel::GetHeader(uint8_t* buffer, ResponseCode expectedCode) /
     ResponseHeader header;
     uint32_t sizeExpected = 0;
     boost::system::error_code err; // read() will not throw exception when error_code is passed as argument.
-    header = reinterpret_cast<ResponseHeader&>(buffer);
+    header = reinterpret_cast<ResponseHeader&>(*buffer);
     if (header.code < REGISTRATION_SUCCEEDED || header.code > MSG_RECEIVED) // code received is not a response code
     {
         ReportErrorToClient("Received Unexpected Code");
@@ -191,7 +199,7 @@ bool TcpClientChannel::Write(uint8_t* buffer, size_t length)
     {
 
         boost::system::error_code errorCode;
-        bytesWritten = write(*m_socket, boost::asio::buffer(buffPtr,PACKET_SIZE), errorCode);
+        bytesWritten = boost::asio::write(*m_socket, boost::asio::buffer(buffPtr,bytesToWrite), errorCode);
         if(bytesWritten == 0)
             return false;
         buffPtr+=bytesWritten;

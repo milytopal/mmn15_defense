@@ -82,8 +82,8 @@ class Database:
         conn.close()
     def addClient(self, name):
         """ create a new client instance with name and uuid and store in DB"""
-        id =  uuid.uuid4().bytes_le.hex()       # generating unique id for client
-        client = client_info.Client(name, id, str(datetime.now()))            # id is stored as bytes
+            # generating unique id for client
+        client = client_info.Client(name, str(datetime.now()))            # id is stored as bytes
         commited = self.execute(f"INSERT INTO {Database.SERVER}(ID, Name, PublicKey, LastSeen, AesKey) VALUES (?, ?,NULL, ?, NULL)",
                             [client.id, client.name, client.lastSeen], True)
         if commited:

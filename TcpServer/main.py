@@ -81,9 +81,9 @@ if __name__ == '__main__':
         # utils.stop(f"Server start exception: {srvr.lastErr}")
     except:
         pass
-
-    print(f" key length:  {len(key.export_key())}!!!!2222222222")
-    srvr.handleRegistrationRequest(srvr.conn, Registaion_Request)
-    srvr.handleSendFileRequest(srvr.conn, SendFileReq)
-    print(public_key_req)
-    srvr.handlePublicKeyRequest(srvr.conn, publicKeyReq)
+    #
+    # print(f" key length:  {len(key.export_key())}!!!!2222222222")
+    # srvr.handleRegistrationRequest(srvr.conn, Registaion_Request)
+    # srvr.handleSendFileRequest(srvr.conn, SendFileReq)
+    # print(public_key_req)
+    # srvr.handlePublicKeyRequest(srvr.conn, publicKeyReq)

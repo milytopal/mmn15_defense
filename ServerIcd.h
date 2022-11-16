@@ -61,10 +61,10 @@ struct ClientID
     };
 
     ClientID() =default;
-    explicit ClientID(const std::string& id){
-        if(id.length() == CLIENT_ID_SIZE)
+    explicit ClientID(uint8_t* buff){
+        if(buff != nullptr)
         {
-            strncpy((char*)uuid, id.c_str(), CLIENT_ID_SIZE);
+            memcpy((char*)uuid, buff, CLIENT_ID_SIZE);
         }
     };
 };
@@ -205,7 +205,7 @@ struct PublicKeyRequestMessage
         PublicKey  clientsPublicKey;
     }payload;
 
-    PublicKeyRequestMessage(const ClientID& id, const ClientName name) : header(id, REQUEST_TO_SEND_FILE)
+    PublicKeyRequestMessage(const ClientID& id, const ClientName name) : header(id, REQUEST_PUBLIC_KEY)
     {
         payload.clientName = name;
         header.payloadSize = sizeof (payload);

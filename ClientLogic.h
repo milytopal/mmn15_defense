@@ -84,7 +84,7 @@ private:
     /* Handling ResponseCode 2104 */
     void EndSession();
     /////// Functions for Requests Sending //////////
-    bool SendPublicKeyToServer(uint8_t *key, size_t size);
+    bool SendPublicKeyToServer();
 
     bool SendRegistrationRequest();
 

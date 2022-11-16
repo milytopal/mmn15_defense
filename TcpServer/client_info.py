@@ -1,11 +1,12 @@
 import protocol
+import uuid
 
 
 class Client:
     """ Represents a client in the database """
-    def __init__(self, name, id, lastSeen):
+    def __init__(self, name,lastSeen):
         self.name = name
-        self.id = bytes.fromhex(id)     # Unique client ID, 16 bytes.
+        self.id = uuid.uuid4().bytes_le        # Unique client ID, 16 bytes.
         self.publicKey = b""
         self.AesKey = b""
         self.files = []

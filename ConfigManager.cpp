@@ -329,7 +329,7 @@ bool ConfigManager::CheckClientName(string &line) {
     {
 
     }
-    m_clientInfo.name.append(line);
+    m_clientInfo.name = line;
     return true;
 }
 

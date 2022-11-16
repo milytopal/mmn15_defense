@@ -47,30 +47,32 @@ class Server:
         self.sel.register(conn, selectors.EVENT_READ, self.read)
 
     def read(self, conn, mask):
-        log.info("a client has connected")
-        data = conn.recv(1024)  # Should be ready
+        print("a client has connected")
+        data = conn.recv(1024) # Should be ready
         if data:
             requestHeader = protocol.RequestHeader()
             success = False
             if not requestHeader.unpack(data):
                 log.error("Failed to parse request header!")
             else:
+                print(requestHeader)
                 if requestHeader.code in self.requestHandle.keys():
                     success = self.requestHandle[requestHeader.code](conn, data)  # invoke corresponding handle.
             if not success:  # return generic error upon failure.
                 responseHeader = protocol.ResponseHeader(protocol.ResponseCode.REGISTRATION_FAILED.value)
                 self.write(conn, responseHeader.pack())
-        self.sel.unregister(conn)
-        conn.close()
-        print('closing', conn)
+        else:
+            self.sel.unregister(conn)
+            conn.close()
+            print('closing', conn)
 
 
     def write(self, conn, data):    #TODO: implement
         """ Sends a response to client """
         size = len(data)
         bytesSent = 0
-        while bytesSent > size:
-            bytesLeft = size = bytesSent
+        while bytesSent < size:
+            bytesLeft = size - bytesSent
             if bytesSent > Server.PACKET_SIZE:
                 bytesLeft = Server.PACKET_SIZE
             send = data[bytesSent: bytesSent + bytesLeft]
@@ -88,17 +90,18 @@ class Server:
     def run(self):
         self.database.initialize()
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as self.s:
-                self.s.bind(('', self.port))
-                self.s.listen(15)
-                self.s.setblocking(False)
-                # register selector to events
-                if self.sel.register(self.s, selectors.EVENT_READ, self.accept):
-                    print("registered successfully")
+            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.s.bind((self.host, self.port))
+            self.s.listen(15)
+            self.s.setblocking(False)
+            # register selector to events
+            if self.sel.register(self.s, selectors.EVENT_READ, self.accept):
+                print("registered successfully")
         except Exception as e:
             self.lastErr = e
             print(e)
-        print(f"Server is listening for connections on port {self.port}..")
+        print(f"Server is listening for connections on port {self.port}")
         while True:
             try:
                 events = self.sel.select()
