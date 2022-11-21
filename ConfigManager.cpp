@@ -12,21 +12,7 @@ constexpr unsigned int UUID_LINE_INDEX      = 1;
 constexpr unsigned int RSA_KEY_LINE_INDEX   = 2;
 
 ConfigManager* ConfigManager::instance = nullptr;
-//
-//ConfigManager* ConfigManager::Instance()
-//{
-//    if (instance == nullptr)
-//    {
-//        instance = new ConfigManager();
-//        if(!initialize())
-//        {
-//            delete instance;
-//            instance = nullptr;
-//            return nullptr;
-//        }
-//    }
-//    return instance;
-//}
+
 ConfigManager::ConfigManager(){
     initialize();
 }
@@ -59,46 +45,6 @@ bool ConfigManager::initialize() {
     return true;
 }
 
-/*
-bool ConfigManager::initialize() {
-
-    if(std::filesystem::exists(TRANSFER_CONFIG)) {
-        auto fileStream = new std::fstream;
-
-        fileStream->open(TRANSFER_CONFIG, std::fstream::in);
-        if (fileStream->is_open()) {
-            std::string line;
-            try
-            {
-                std::getline(*fileStream, line);
-                if (!GetSocketParams(line)) {
-                    return false;
-                }
-                std::getline(*fileStream, line);
-                if (!GetClientName(line)) {
-                    return false;
-                }
-                std::getline(*fileStream, line);
-                if (!GetFileName(line)) {
-                    return false;
-                }
-            }
-            catch (...)
-            {
-                return false;
-            }
-            fileStream->close();
-        }
-        else
-        {
-            m_lastError << Err.at(ErrorReports::FAILED_TO_OPEN_FILE) << ": " << TRANSFER_CONFIG;
-        }
-    }
-    return true;
-}
- */
-
-
 bool ConfigManager::GetClientName(std::string& nameLine) {
     if (nameLine.empty()) {
         m_lastError << Err.at(ErrorReports::CLIENT_NAME_MISSING);
@@ -114,17 +60,18 @@ bool ConfigManager::GetClientName(std::string& nameLine) {
     return true;
 }
 
-void ConfigManager::SetClientsUuid(string &uuid)
+void ConfigManager::SetClientsUuid(string uuid)
 {
     m_clientInfo.uuid = uuid;
+    uuid = StringWrapper::encode(uuid);
     FileHandler fHandler(REGISTRATION_CONFIG);
-    fHandler.WriteAtLine(m_clientInfo.uuid, UUID_LINE_INDEX);
+    fHandler.WriteAtLine(uuid, UUID_LINE_INDEX);
 }
 
 void ConfigManager::SetClientsPrivateKey(string key)
 {
     m_clientInfo.RSAPrivatekey = key;
-    auto encodedKey = Base64Wrapper::encode(key);
+    auto encodedKey = StringWrapper::encode(key);
     FileHandler fHandler(REGISTRATION_CONFIG);
     fHandler.WriteAtLine(encodedKey, RSA_KEY_LINE_INDEX);
 
@@ -136,11 +83,16 @@ bool ConfigManager::GetFileName(std::string& fileLine) {
         return false;
     }
     boost::algorithm::trim(fileLine);
-    if(!std::filesystem::exists(fileLine)) {
+    std::string filename = fileLine;
+#ifdef WIN32
+    filename = StringWrapper::normalizePath(line);
+#endif
+
+    if(!std::filesystem::exists(filename)) {
         m_lastError << Err.at(ErrorReports::FILE_DOES_NOT_EXISTS) << ": " << fileLine;
         return false;
     }
-    m_transferInfo.filePath = fileLine;
+    m_transferInfo.filePath = filename;
     return true;
 }
 
@@ -186,15 +138,6 @@ bool ConfigManager::GetSocketParams(std::string& paramsLine) {
     }
     return true;
 }
-//
-//TransferInfo ConfigManager::GetTransferInfo() {
-//
-//    return m_transferInfo;
-//}
-//
-//string ConfigManager::GetLastError() {
-//    return m_lastError.str();
-//}
 
 
 void ConfigManager::CreateRegistrationFile() {
@@ -212,34 +155,6 @@ void ConfigManager::CreateRegistrationFile() {
         std::cout << __func__ << "Handler Failed to Write to file" << std::endl;
     }
 }
-/*
-
-bool ConfigManager::isRegistered(){
-
-    if(!std::filesystem::exists(REGISTRATION_CONFIG)) {
-        CreateRegistrationFile();
-        return false;
-    }
-
-    FileHandler fHandler(REGISTRATION_CONFIG);
-    int linenum = 0;
-    std::string line;
-    line = fHandler.GetLine(NAME_LINE_INDEX);
-    if (!CheckClientName(line)) {
-        return false;
-    }
-    line = fHandler.GetLine(UUID_LINE_INDEX);
-    if(!CheckClientsID(line)){
-      //  return false;
-    }
-    line = fHandler.GetLine(RSA_KEY_LINE_INDEX);
-    if (!GetRSAKey(line)) {
-        return false;
-    }
-    return true;
-}
- */
-
 
 bool ConfigManager::isRegistered(){
 
@@ -261,9 +176,8 @@ bool ConfigManager::isRegistered(){
                 }
                 std::getline(*fileStream, line);
                 if(!CheckClientsID(line)) {
-                 //  return false;
+                    return false;
                 }
-//                std::getline(*fileStream, line);
                 std::string key((std::istreambuf_iterator<char>(*fileStream)),
                                 std::istreambuf_iterator<char>());
                 size_t size = key.length();
@@ -290,7 +204,7 @@ bool ConfigManager::GetRSAKey(string &line) {
         return false;
     }
     boost::algorithm::trim(line);
-    std::string res = Base64Wrapper::decode(line);
+    std::string res = StringWrapper::decode(line);
     //if(line.length() != RSAPrivateWrapper::BITS/8)
     // std::cout << "key length: " << res.length() << "  expected: " << RSAPrivateWrapper::BITS/8 << std::endl;
     m_clientInfo.RSAPrivatekey = res;
@@ -304,13 +218,16 @@ bool ConfigManager::CheckClientsID(string& line)
         return false;
     }
     boost::algorithm::trim(line);
-    boost::uuids::uuid result;
-    try {
-        result = boost::uuids::string_generator()(line);
-        return result.version() != boost::uuids::uuid::version_unknown;
-    } catch(...) {
+    line = StringWrapper::decode(line);     // todo: test
+    line = StringWrapper::unhex(line);
+
+    if(line.length() != CLIENT_ID_SIZE)
+    {
+        std::cout <<  "uuid length corupted!! ";
         return false;
     }
+    m_clientInfo.uuid = line;
+    return true;
 }
 
 bool ConfigManager::CheckClientName(string &line) {
@@ -323,11 +240,10 @@ bool ConfigManager::CheckClientName(string &line) {
         m_lastError << __func__ << Err.at(ErrorReports::CLIENT_NAME_TOO_LONG);
         return false;
     }
-    //std::iterator alnumpPtr = line.get_allocator();
     auto alnumpPtr(std::find_if(line.begin(), line.end(), (int(*)(int))std::isalpha));
     if(alnumpPtr.base() == nullptr)
     {
-
+        return false;
     }
     m_clientInfo.name = line;
     return true;

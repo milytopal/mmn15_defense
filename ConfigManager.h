@@ -8,7 +8,7 @@
 #include <map>
 #include "ServerIcd.h"
 #include "FileHandler.h"
-#include "Base64Wrapper.h"
+#include "StringWrapper.h"
 
 
 #define REGISTRATION_CONFIG "me.info"
@@ -66,7 +66,7 @@ public:
     inline static std::string& GetFileToSend(){return m_transferInfo.filePath; };
     inline static TransferInfo& GetTransferInfo(){ return m_transferInfo;};
     inline static string GetLastError(){ return m_lastError.str(); };
-    static void SetClientsUuid(string& uuid);
+    static void SetClientsUuid(string uuid);
     static void SetClientsPrivateKey(string key);
     std::stringstream operator<<(string& log);
     inline static ClientInfo& GetClientInfo(){ return m_clientInfo; };

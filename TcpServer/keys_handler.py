@@ -11,22 +11,34 @@ def GenerateAesKey():
     try:
         # generate random Aes key
         aes_key = Random.get_random_bytes(protocol.SYMMETRIC_KEY_SIZE)
-        # aes_key = Random.new().read(protocol.SYMMETRIC_KEY_SIZE)
         # Encrypt the session key with the public RSA key
         cipher_rsa = AES.new(aes_key ,AES.MODE_CBC)
+        print( "Generated AES key: " + str(cipher_rsa.IV))
         return cipher_rsa.IV
     except:
         pass
 
-def decrypt(ciphertext, key):
+def decrypt(ciphertext, key, content_size):
+    """decrypt given content using AES key"""
     try:
-        return AES.new(key, AES.MODE_CBC).decrypt(ciphertext, key).decode('utf-8')
-    except:
+        iv_zeros = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        iv = bytearray(iv_zeros)
+        decrypt_cipher = AES.new(key, AES.MODE_CBC, iv)
+        plain_text = decrypt_cipher.decrypt(ciphertext)
+        decrypted_content = plain_text[:content_size]
+        return decrypted_content
+    except Exception as e:
+        print(e)
         return None
 
+
 def encryptAesKeyWithRsaPublic(data, key):
-    #key = bytes.decode(key, 'utf-8')
-    print(f"key len: {len(key)}")
+    """ encrypt given content using RSA key, in this case only the AES key is encrypted
+    with the RSA public key from client"""
+    try:
+        key = bytes.decode(key, 'utf-8')
+    except:
+        pass
     try:
         RSA.import_key(key)
         recipient_key = RSA.importKey(key, 'DER')

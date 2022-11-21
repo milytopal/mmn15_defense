@@ -17,10 +17,6 @@ std::string ClientManager::GetFileName() {
 
 void ClientManager::Initialize() {
 
-    m_clientError = (std::function<void(std::string)>([this](std::string err){
-        clientStop(err);
-    }));
-
     if (ConfigManager::Instance().GetTransferInfo().name.empty())
     {
         clientStop(ConfigManager::GetLastError());
@@ -36,10 +32,6 @@ void ClientManager::Initialize() {
         m_clientLogic = new ClientLogic(info.name, false);
     }
 
-    m_clientLogic->SetErrorCallback(m_clientError);
-
-
-
 }
 
 void ClientManager::Run()
@@ -52,7 +44,11 @@ void ClientManager::Run()
 void ClientManager::clientStop(const std::string& error) const
 {
     std::cout << "Fatal Error: " << error << std::endl << "Client will stop." << std::endl;
-    //pause();
     exit(1);
+}
+
+ClientManager::~ClientManager()
+{
+    delete m_clientLogic;
 }
 

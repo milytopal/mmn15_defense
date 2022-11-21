@@ -2,8 +2,10 @@
 // Created by Mily Topal on 01/10/2022.
 //
 
+#include <sstream>
 #include "FileHandler.h"
 using namespace std;
+#include "string"
 
 FileHandler::FileHandler(std::string filePath) : m_pathTofFile(filePath) {
     if(std::filesystem::exists(m_pathTofFile))
@@ -74,11 +76,24 @@ size_t FileHandler::GetFileLength()
         std::cout << "failed to find file"<< std::endl;
         return 0;
     }
-    std::filesystem::file_size(std::filesystem::path(m_pathTofFile), err); // function wount throw exception if errr_code is passed
-    if(!err.message().empty())
-        std::cout << err.message();
     return std::filesystem::file_size(std::filesystem::path(m_pathTofFile), err); // function wount throw exception if errr_code is passed
 }
+
+size_t FileHandler::GetFileLengthWithPadding()
+{
+    std::error_code err;
+    if(!std::filesystem::exists(m_pathTofFile))
+    {
+        std::cout << "failed to find file"<< std::endl;
+        return 0;
+    }
+    int count = std::filesystem::file_size(std::filesystem::path(m_pathTofFile), err); // function wount throw exception if errr_code is passed
+    // calculate padding
+    unsigned int idx = 16 - (count % 16 > 0 ? count % 16 : 16);
+
+    return count + idx;
+}
+
 
 /* Read length characters from file into buffer
  * mode is by default in, if passed binary it will be added to the openmode*/
@@ -88,17 +103,50 @@ bool FileHandler::Read(uint8_t* buffer, size_t length, std::ios_base::openmode m
     {
         m_pFile->open((char*)m_pathTofFile.c_str(), openMode);
         m_pFile->tellg();
-        if(m_pFile->readsome((char*)buffer, length) != length)
+        if(m_pFile->read((char*)buffer, length).fail())
         {
-            std::cout << __FILE__ << __func__ << "failed to read file";
+            std::cout << __FILE__ << ": "<< __func__ << ": " << "failed to read file";
+            return false;
         }
+        return true;
     }
-}
-
-bool FileHandler::Write(std::string& content) {
-
     return false;
 }
+
+
+/* Read length characters from file into buffer
+ * mode is by default in, if passed binary it will be added to the openmode*/
+bool FileHandler::ReadFileWithPadding(uint8_t* buffer, size_t length, std::ios_base::openmode mode) {
+    std::ios_base::openmode openMode = std::ios_base::in | mode;
+
+    if(std::filesystem::exists(m_pathTofFile))
+    {
+        std::string str;
+        auto ss = std::ostringstream{};
+        m_pFile->open((char*)m_pathTofFile.c_str(), openMode);
+        m_pFile->tellg();
+        unsigned char* tmp;
+
+        ss << m_pFile->rdbuf();
+
+        int count = ss.str().length();
+
+
+        // 16 bytes padding
+        unsigned int idx = 16 - (count % 16 > 0 ? count % 16 : 16);
+        for (int i = count ; i < count + idx; ++i) {
+            ss << (char)'\0';
+        }
+
+        count += idx;
+        memcpy(buffer, ss.str().data(), length);
+
+        return true;
+    }
+    return false;
+}
+
+
 
 
 void FileHandler::initialize() {

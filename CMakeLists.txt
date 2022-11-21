@@ -17,8 +17,8 @@ set(SOURCE_FILES main.cpp
         ConfigManager.h
         ClientManager.cpp
         ClientManager.h
-        Base64Wrapper.cpp
-        Base64Wrapper.h
+        StringWrapper.cpp
+        StringWrapper.h
         AESWrapper.cpp
         AESWrapper.h
         )
@@ -39,7 +39,7 @@ if(APPLE)
 elseif(UNIX)
     set(PROJECT_ROOT "/home/milytopal/CLionProjects/mmn15_defense")
 elseif(WIN32)
-    set(PROJECT_ROOT "/Users/milytopal/CLionProjects/mmn15_defense")
+    set(PROJECT_ROOT "D:\\mmn15_defense")
 endif()
 find_package(Boost 1.79.0)
 find_package(CryptoPP REQUIRED)

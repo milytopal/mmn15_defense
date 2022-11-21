@@ -95,8 +95,8 @@ build CMakeFiles/mmn15_defense.dir/ClientManager.cpp.o: CXX_COMPILER__mmn15_defe
   OBJECT_DIR = CMakeFiles/mmn15_defense.dir
   OBJECT_FILE_DIR = CMakeFiles/mmn15_defense.dir
 
-build CMakeFiles/mmn15_defense.dir/Base64Wrapper.cpp.o: CXX_COMPILER__mmn15_defense_Debug /Users/milytopal/CLionProjects/mmn15_defense/Base64Wrapper.cpp || cmake_object_order_depends_target_mmn15_defense
-  DEP_FILE = CMakeFiles/mmn15_defense.dir/Base64Wrapper.cpp.o.d
+build CMakeFiles/mmn15_defense.dir/StringWrapper.cpp.o: CXX_COMPILER__mmn15_defense_Debug /Users/milytopal/CLionProjects/mmn15_defense/StringWrapper.cpp || cmake_object_order_depends_target_mmn15_defense
+  DEP_FILE = CMakeFiles/mmn15_defense.dir/StringWrapper.cpp.o.d
   FLAGS = -std=c++17  -g -arch arm64 -std=gnu++17
   INCLUDES = -I/opt/homebrew/Cellar/boost/boost/include -I/Users/milytopal/CLionProjects/mmn15_defense/libs -I/Users/milytopal/CLionProjects/mmn15_defense/libs/cryptopp/include/cryptopp -I/Users/milytopal/CLionProjects/mmn15_defense/libs/cryptopp
   OBJECT_DIR = CMakeFiles/mmn15_defense.dir
@@ -117,7 +117,7 @@ build CMakeFiles/mmn15_defense.dir/AESWrapper.cpp.o: CXX_COMPILER__mmn15_defense
 #############################################
 # Link the executable mmn15_defense
 
-build mmn15_defense: CXX_EXECUTABLE_LINKER__mmn15_defense_Debug CMakeFiles/mmn15_defense.dir/main.cpp.o CMakeFiles/mmn15_defense.dir/TcpClientChannel.cpp.o CMakeFiles/mmn15_defense.dir/FileHandler.cpp.o CMakeFiles/mmn15_defense.dir/ClientLogic.cpp.o CMakeFiles/mmn15_defense.dir/RSAWrapper.cpp.o CMakeFiles/mmn15_defense.dir/ConfigManager.cpp.o CMakeFiles/mmn15_defense.dir/ClientManager.cpp.o CMakeFiles/mmn15_defense.dir/Base64Wrapper.cpp.o CMakeFiles/mmn15_defense.dir/AESWrapper.cpp.o | ../libs/cryptopp/libcryptopp.a
+build mmn15_defense: CXX_EXECUTABLE_LINKER__mmn15_defense_Debug CMakeFiles/mmn15_defense.dir/main.cpp.o CMakeFiles/mmn15_defense.dir/TcpClientChannel.cpp.o CMakeFiles/mmn15_defense.dir/FileHandler.cpp.o CMakeFiles/mmn15_defense.dir/ClientLogic.cpp.o CMakeFiles/mmn15_defense.dir/RSAWrapper.cpp.o CMakeFiles/mmn15_defense.dir/ConfigManager.cpp.o CMakeFiles/mmn15_defense.dir/ClientManager.cpp.o CMakeFiles/mmn15_defense.dir/StringWrapper.cpp.o CMakeFiles/mmn15_defense.dir/AESWrapper.cpp.o | ../libs/cryptopp/libcryptopp.a
   FLAGS = -std=c++17  -g -arch arm64
   LINK_LIBRARIES = -Wl,-rpath,/Users/milytopal/CLionProjects/mmn15_defense/libs/cryptopp/include/cryptopp -Wl,-rpath,/opt/homebrew/Cellar/boost/boost/include  ../libs/cryptopp/libcryptopp.a
   LINK_PATH = -L/Users/milytopal/CLionProjects/mmn15_defense/libs/cryptopp/include/cryptopp   -L/opt/homebrew/Cellar/boost/boost/include

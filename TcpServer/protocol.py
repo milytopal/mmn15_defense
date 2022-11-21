@@ -1,5 +1,6 @@
 import struct
 from enum import Enum
+import logging as log
 
 # All sizes are in BYTES.
 SERVER_VERSION = 3
@@ -118,11 +119,7 @@ class PublicKeyRequest:
             nameData = data[self.header.SIZE:self.header.SIZE + CLIENT_NAME_SIZE]
             self.clientName = str(struct.unpack(f"<{CLIENT_NAME_SIZE}s", nameData)[0].partition(b'\0')[0].decode('utf-8'))
             offset = self.header.SIZE + CLIENT_NAME_SIZE
-            print(f"offset:  {offset} , payloadsize: {self.header.payloadSize}"
-                  f" key size: {self.header.payloadSize - CLIENT_NAME_SIZE} message size: {self.header.SIZE + self.header.payloadSize}"
-                  f" left: {self.header.SIZE + self.header.payloadSize - offset}")
-
-            publicKeyData = data[offset:]
+            publicKeyData = data[offset:offset + PUBLIC_KEY_SIZE]
             self.publicKey= struct.unpack(f"<{PUBLIC_KEY_SIZE}s", publicKeyData)[0]
             return True
         except:
@@ -131,7 +128,7 @@ class PublicKeyRequest:
         return False
 
     def __str__(self):
-        return "PublicKeyRequest:\n" + str(self.header) + f"\nClient's name: {self.clientName}\nPublicKey: {self.publicKey} "
+        return "PublicKeyRequest:\n" + str(self.header) + f"\nClient's name: {self.clientName}\nPublicKey: {str.encode(str(self.publicKey),'utf-8').hex()} "
 
 
 class RequestToSendFile:
@@ -153,19 +150,21 @@ class RequestToSendFile:
             fileNameData = data[offset:offset + FILE_NAME_SIZE]
             self.fileName = str(struct.unpack(f"<{FILE_NAME_SIZE}s", fileNameData)[0].partition(b'\0')[0].decode('utf-8'))
             offset += FILE_NAME_SIZE
-            bytesRead = packetSize - offset
-            if bytesRead > self.contentSize:
-                bytesRead = self.contentSize
-            self.fileContent = struct.unpack(f"<{bytesRead}s", data[offset:offset + bytesRead])[0]
-            while bytesRead < self.contentSize:
+            encryptedContentSize =  self.header.payloadSize - FILE_NAME_SIZE - 4 # 4 bytes of int; the encryptedContent might pe different in size than the actual content
+            bytesRead = encryptedContentSize
+            if bytesRead > PACKET_SIZE:
+                bytesRead = PACKET_SIZE - offset
+            self.fileContent = struct.unpack(f"<{bytesRead}s", data[offset: offset + bytesRead])[0]
+            while bytesRead < encryptedContentSize:
                 data = conn.recv(packetSize)  # reuse first size of data.
                 dataSize = len(data)
-                if (self.contentSize - bytesRead) < dataSize:
-                    dataSize = self.contentSize - bytesRead
+                if (encryptedContentSize - bytesRead) < dataSize:
+                    dataSize = encryptedContentSize - bytesRead
                 self.fileContent += struct.unpack(f"<{dataSize}s", data[:dataSize])[0]
                 bytesRead += dataSize
             return True
-        except:
+        except Exception as e:
+            log.error(f"{e}")
             self.contentSize = 0
             self.fileName = b""
             self.fileContent = b""
@@ -237,7 +236,7 @@ class RegistrationSucceededResponse:
             return b""
 
     def __str__(self):
-        return "RegistrationSucceededResponse:\n" + str(self.header) + f" Client ID: {self.clientID}"
+        return "RegistrationSucceededResponse:\n" + str(self.header) + f" Client ID: {self.clientID.hex(' ',1)}"
 
 
 
@@ -269,7 +268,7 @@ class PublicKeyResponse:
         try:
             data = self.header.pack()
             data += struct.pack(f"<{CLIENT_ID_SIZE}s", self.clientID)
-            data += struct.pack(f"<{SYMMETRIC_KEY_SIZE}s", self.symmetricKey)
+            data += struct.pack(f"<{len(self.symmetricKey)}s", self.symmetricKey)
             return data
         except:
             return b""
@@ -297,10 +296,14 @@ class FileReceivedCrcValueResponse:
             data = self.header.pack()
             data += struct.pack(f"<{CLIENT_ID_SIZE}s", self.clientID)
             data += struct.pack("<I", self.contentSize)
-            data += struct.pack(f"<{FILE_NAME_SIZE}s", self.fileName)
+            filename = self.fileName
+            if type(self.fileName) is str:
+                filename = str.encode(filename,'utf-8')
+            data += struct.pack(f"<{FILE_NAME_SIZE}s", filename)
             data += struct.pack("<I", self.checksum)
             return data
-        except:
+        except Exception as e:
+            log.error(f"{e}")
             return b""
 
 

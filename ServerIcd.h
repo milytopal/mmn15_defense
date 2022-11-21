@@ -7,7 +7,8 @@
 
 #pragma once
 #include <cstdlib>
-
+#include "StringWrapper.h"
+#include "iostream"
 
 // Constants. All sizes are in BYTES.
 constexpr size_t    MAX_INCOMING_PAYLOAD_SIZE   = (16 + 4 + 255 + 4) /* payload of FileReceivedValidCrcResponseMessage */;
@@ -44,6 +45,7 @@ enum ResponseCode
 struct ClientID
 {
     uint8_t uuid[CLIENT_ID_SIZE] = {0};
+
     bool operator==(const ClientID& otherID) const {
         for (size_t i = 0; i < CLIENT_ID_SIZE; ++i)
             if (uuid[i] != otherID.uuid[i])
@@ -67,6 +69,12 @@ struct ClientID
             memcpy((char*)uuid, buff, CLIENT_ID_SIZE);
         }
     };
+    // returning a readable string
+    inline std::string to_string(ClientID u)
+    {
+        auto str = StringWrapper::hex(u.uuid, CLIENT_ID_SIZE);
+        return str;
+    }
 };
 
 struct ClientName
@@ -75,9 +83,9 @@ struct ClientName
     bool isEmpty() {
         auto tmp = std::bitset<CLIENT_NAME_SIZE>(name);
         return tmp.none();
-    }
+    };
     ClientName()= default;;
-    explicit ClientName(std::string nameStr){ memcpy(name, nameStr.c_str(), CLIENT_NAME_SIZE);};
+    explicit ClientName(std::string& nameStr){ memcpy(name, nameStr.c_str(), std::min((nameStr.length()), CLIENT_NAME_SIZE));};
 };
 
 struct PublicKey
@@ -86,9 +94,11 @@ struct PublicKey
     bool isEmpty() {
         auto tmp = std::bitset<PUBLIC_KEY_SIZE>(publicKey);
         return tmp.none();
-    }
+    };
     PublicKey() = default;
-    explicit PublicKey(const std::string& key){strncpy((char*)publicKey, key.c_str(), PUBLIC_KEY_SIZE);};
+    explicit PublicKey(const std::string& key){
+        memcpy(this->publicKey, key.c_str(),  std::min(key.length(), PUBLIC_KEY_SIZE));
+    };
 
 };
 
@@ -104,9 +114,9 @@ struct SymmetricKey
     {
         return *this;
     };
-    SymmetricKey&operator=(std::string key)
+    SymmetricKey&operator=(const std::string key)
     {
-        memcpy(this->symmetricKey, key.c_str(), SYMMETRIC_KEY_SIZE);
+        memcpy(this->symmetricKey, key.c_str(),  std::min((key.length()), SYMMETRIC_KEY_SIZE));
         return *this;
     };
 };
@@ -129,8 +139,8 @@ struct RequestHeader
     uint8_t version;
     uint16_t code;
     uint32_t payloadSize;
-    explicit RequestHeader(const uint16_t reqCode) : version(CLIENT_VERSION), code(reqCode), payloadSize(0) {}
-    RequestHeader(const ClientID& id, const uint16_t reqCode) : clientId(id), version(CLIENT_VERSION), code(reqCode), payloadSize(0) {}
+    explicit RequestHeader(const uint16_t reqCode) : version(CLIENT_VERSION), code(reqCode), payloadSize(0) {};
+    RequestHeader(const ClientID& id, const uint16_t reqCode) : clientId(id), version(CLIENT_VERSION), code(reqCode), payloadSize(0) {};
 };
 
 struct ResponseHeader
@@ -138,7 +148,7 @@ struct ResponseHeader
     uint8_t version;
     uint16_t   code;
     uint32_t  payloadSize;
-    ResponseHeader() : version(0), code(0), payloadSize(0) {}
+    ResponseHeader() : version(0), code(0), payloadSize(0) {};
 };
 
 /////////////// RESPONSES FROM SERVER //////////////////
@@ -161,7 +171,7 @@ struct PublicKeyResponseMessage          // received public key from client and 
     struct
     {
         ClientID   clientId;
-        SymmetricKey  symmetricKey;      // symmetrick key size is unknown
+        SymmetricKey*  symmetricKey;      // symmetrick key size is unknown
     }payload;
 };
 
@@ -171,9 +181,9 @@ struct FileReceivedValidCrcResponseMessage
     struct
     {
         ClientID   clientId;
-        uint32_t contentSize = 0;
+        uint32_t contentSize;
         FileName  fileName;
-        uint32_t checksum = 0;
+        uint32_t checksum;
     }payload;
 };
 
@@ -193,7 +203,7 @@ struct RegistrationRequestMessage /* Server ignores ClientID feild in header*/
     }payload;
     explicit RegistrationRequestMessage(const ClientName name) : header(REQUEST_REGISTRATION) {
         payload.clientName = name;
-        header.payloadSize = sizeof (payload);} // server ignores ClientID
+        header.payloadSize = sizeof (payload);}; // server ignores ClientID
 };
 
 struct PublicKeyRequestMessage
@@ -209,7 +219,7 @@ struct PublicKeyRequestMessage
     {
         payload.clientName = name;
         header.payloadSize = sizeof (payload);
-    }
+    };
 };
 
 struct RequestToSendFileMessage
@@ -220,7 +230,7 @@ struct RequestToSendFileMessage
         FileName fileName;
         uint8_t* data = nullptr;                  // unknown size of file
     }payload;
-    explicit RequestToSendFileMessage(const ClientID& id) : header(id, REQUEST_TO_SEND_FILE) {}
+    explicit RequestToSendFileMessage(const ClientID& id) : header(id, REQUEST_TO_SEND_FILE) {};
 };
 
 struct CrcValidRequestMessage {

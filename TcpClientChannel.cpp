@@ -4,6 +4,9 @@
 
 #include <iostream>
 #include "TcpClientChannel.h"
+#include <sys/socket.h>
+
+const int timeout = 200;
 
 TcpClientChannel::TcpClientChannel(std::string name, bool reconnect, std::string address,
                                    std::string port):
@@ -14,7 +17,6 @@ TcpClientChannel::TcpClientChannel(std::string name, bool reconnect, std::string
 {
 
     ReportErrorToClient.operator=([](std::string errTopic){});
-
 }
 
 TcpClientChannel::~TcpClientChannel() {
@@ -29,7 +31,6 @@ TcpClientChannel::~TcpClientChannel() {
 
 void TcpClientChannel::Close()
 {
-    m_exitThread = true;
     try
     {
         if (m_socket != nullptr)
@@ -38,12 +39,9 @@ void TcpClientChannel::Close()
     catch (...) {} // Do Nothing
 
     m_isOpen = false;
-
-
 }
 
 bool TcpClientChannel::Open() {
-    m_exitThread = false;
     try {
         Close();
         m_ioContext = new io_context;
@@ -55,26 +53,16 @@ bool TcpClientChannel::Open() {
 
         boost::system::error_code errorCode;
 
-        std::thread(std::function<void()>([this]()
-              {
-                  run();
-              })).detach();
         if(m_socket->is_open())
         {
-            std::cout << "port open finalllyyyyyyy" << std::endl;
             m_isOpen = true;
-//        std::thread(std::function<void()>([this]()
-//              {
-//                  run();
-//              })).detach();
-
         }
         return (m_isOpen = true);
     }
     catch(std::exception& e)
     {
         std::cerr << "channel returned with an error: "<< e.what() << std::endl;
-        return false;
+        return Error();
     }
 }
 /* Read:    called only by ClientLogic
@@ -88,29 +76,39 @@ bool TcpClientChannel::Read(uint8_t* const buffer, const size_t size ,size_t& by
     size_t payloadSizeLeft = 0;
     ResponseHeader header;
     uint8_t *buffPtr = buffer;
-    uint8_t *tempBuffPtr = nullptr;
 
     uint8_t tempBuffer[PACKET_SIZE] = { 0 };
     boost::system::error_code err; // read() will not throw exception when error_code is passed as argument.
-    bytesRed = boost::asio::read(*m_socket, boost::asio::buffer(tempBuffer, PACKET_SIZE), err); // todo: might need to change size to packet size
+    try {
+        bytesRed = boost::asio::read(*m_socket, boost::asio::buffer(tempBuffer, PACKET_SIZE));
+    }
+    catch(std::exception& e)
+    {
+        std::cerr << "read returned with exeption: " << e.what() << std::endl;
+        m_isOpen = false;
+        return Error();
+    }
+
     if (bytesRed == 0)
-        return false;     // Error. Failed receiving and shouldn't use buffer.
+        return Error();     // Error. Failed receiving and shouldn't use buffer.
     payloadSizeLeft = GetHeader(tempBuffer, expectedCode);
     header = reinterpret_cast<ResponseHeader&>(*tempBuffer);
 
     if(payloadSizeLeft == 0 && header.code != (int)ResponseCode::REGISTRATION_FAILED && header.code != (int)ResponseCode::MSG_RECEIVED )
     {
         // GetHeader returned an error
-        return false;
+        return Error();
     }
+
+    bytesToRead = payloadSizeLeft;
+    const size_t copySize = (bytesToRead > bytesRed) ? bytesRed : bytesToRead + sizeof(ResponseHeader);  // in case bytes red less than bytes to read
+    memcpy(buffPtr, tempBuffer, copySize);
 
     // Header validated
     if(header.payloadSize == 0) {
         return true;    // no payload expected
     }
-    bytesToRead = payloadSizeLeft;
-    const size_t copySize = (bytesToRead > bytesRed) ? bytesRed : bytesToRead + sizeof(ResponseHeader);  // in case bytes red less than bytes to read
-    memcpy(buffPtr, tempBuffer, copySize);
+
     buffPtr += copySize;
     bytesToRead = (bytesToRead < copySize) ? 0 : (bytesToRead - copySize);  // unsigned protection.
     // continue another while for getting payload
@@ -118,7 +116,16 @@ bool TcpClientChannel::Read(uint8_t* const buffer, const size_t size ,size_t& by
     {
         if (bytesToRead > PACKET_SIZE)
             bytesToRead = PACKET_SIZE;
-        bytesRed = boost::asio::read(*m_socket, boost::asio::buffer(tempBuffer, bytesToRead), err); // todo: might need to change size to packet size
+
+        try{
+            bytesRed = boost::asio::read(*m_socket, boost::asio::buffer(tempBuffer, bytesToRead));
+        }
+        catch(std::exception& e)
+        {
+            std::cerr << "read returned with exeption: " << e.what() << std::endl;
+            return Error();
+        }
+
         const size_t copySize = (bytesToRead > bytesRed) ? bytesRed : bytesToRead;  // in case bytes red less than bytes to read
         memcpy(buffPtr, tempBuffer, copySize);
         buffPtr += copySize;
@@ -129,7 +136,7 @@ bool TcpClientChannel::Read(uint8_t* const buffer, const size_t size ,size_t& by
 }
 
 /* Gets the header from the readed buffer red by channel and validates it */
-size_t TcpClientChannel::GetHeader(uint8_t* buffer, ResponseCode expectedCode) // todo: remove expected code
+size_t TcpClientChannel::GetHeader(uint8_t* buffer, ResponseCode expectedCode) //
 {
     ResponseHeader header;
     uint32_t sizeExpected = 0;
@@ -164,13 +171,13 @@ size_t TcpClientChannel::GetHeader(uint8_t* buffer, ResponseCode expectedCode) /
         }
         case ResponseCode::PUBLIC_KEY_RECEIVED: {
             sizeExpected = sizeof(PublicKeyResponseMessage) - sizeof(ResponseHeader); //expected 0
-            if (header.payloadSize > MAX_INCOMING_PAYLOAD_SIZE)
+            if (header.payloadSize > PACKET_SIZE)
             {
                 log << "Unexpected payload size " << header.payloadSize << ". Expected size was " << sizeExpected;
                 ReportErrorToClient (log.str());
                 return 0;
             }
-            return true; // Symmetric key size varies
+            return header.payloadSize; // Symmetric key size varies
         }
         default:
         {
@@ -197,39 +204,32 @@ bool TcpClientChannel::Write(uint8_t* buffer, size_t length)
     uint8_t* buffPtr = buffer;
     while(bytesToWrite > 0)
     {
+        boost::system::error_code err;
+        try
+        {
+            bytesWritten = boost::asio::write(*m_socket, boost::asio::buffer(buffPtr, PACKET_SIZE));
+        }
+        catch(std::exception& e)
+        {
+            std::cerr << "read returned with exeption: " << e.what() << std::endl;
+            return Error();
+        }
 
-        boost::system::error_code errorCode;
-        bytesWritten = boost::asio::write(*m_socket, boost::asio::buffer(buffPtr,bytesToWrite), errorCode);
         if(bytesWritten == 0)
-            return false;
+            return Error();
         buffPtr+=bytesWritten;
         bytesToWrite = (bytesToWrite < bytesWritten) ? 0 : (bytesToWrite - bytesWritten);
     }
     return true;
 }
 
-
-void TcpClientChannel::setNewDataSignalCallBack(std::function<void (std::string errTopic)> callback) {
-    if(callback != nullptr)
-    {
-        ReportErrorToClient.operator=(callback);
-    }
-    else
-    {
-        ReportErrorToClient = [](std::string errTopic){};
-    }
-
+bool TcpClientChannel::Error()
+{
+    m_isOpen = false;
+    return false;
 }
+
 bool TcpClientChannel::isOpen() {
     return m_isOpen;
 }
 
-void TcpClientChannel::run() {
-    uint8_t buffer[PACKET_SIZE];
-
-    while(!m_exitThread)
-    {
-
-    }
-
-}

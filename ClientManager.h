@@ -13,7 +13,8 @@
 class ClientManager {
 
 public:
-    ClientManager();
+    explicit  ClientManager();
+    ~ClientManager();
     void clientStop(const std::string& error) const;
     void Initialize();
     void Run();

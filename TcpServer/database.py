@@ -2,9 +2,8 @@ import protocol
 import client_info
 import sqlite3
 import logging as log
-import file_handler
+from file_handler import File, FileHandler
 import keys_handler
-import uuid
 from datetime import datetime
 
 
@@ -14,6 +13,7 @@ class Database:
 
     def __init__(self, name):
         self.name = name
+        self.fileHandler = FileHandler()
 
     # connectivity database
     def connect(self):
@@ -48,7 +48,7 @@ class Database:
         try:
             results = self.execute(f""" UPDATE {Database.SERVER} 
                                     SET LastSeen = ? 
-                                    WHERE ID OR NAME = ?;""",[str(datetime.now()), nameOrId])
+                                    WHERE ID OR NAME = ?;""",[str(datetime.now()), nameOrId], True)
 
         except Exception as e:
             log.error(f"{e}")
@@ -72,8 +72,8 @@ class Database:
         try:    # creating files table
             query = f"""CREATE TABLE {Database.FILES}(
                     ID CHAR(16) NOT NULL,
-                    FileName CHAR(255) NOT NULL,
-                    PathName CHAR(255) NOT NULL PRIMARY KEY,
+                    FileName CHAR(255) NOT NULL PRIMARY KEY,
+                    PathName CHAR(255) NOT NULL,
                     Varified INTEGER);""" # boolean if the crc verified
             cur.execute(query)
             conn.commit()
@@ -91,17 +91,82 @@ class Database:
         else:
             return None
 
-    def storeFile(self,clientId, fileName, content):
-        """ create a new client instance with name and uuid and store in DB"""
+    def fileExists(self, clientId, fileName):
         try:
-            file = file_handler.File(clientId, fileName, content)            # id is stored as bytes
-            if file is not None:
-                commited = self.execute(f"INSERT INTO {Database.FILES}(ID, FileName, PathName, Varified) VALUES (?, ?, ?, FALSE)",
-                                [file.clientId, file.filename, file.path], True)
+            results = self.execute(f""" SELECT * FROM {Database.FILES}
+                                          WHERE ID = (?) AND FileName = (?); """, [clientId, fileName])
+            if not results:
+                return False
+            return True
+        except:
+            log.error("Failed to Connect to Database")
+            return False
+
+
+    def updateVerification(self, clientId, fileName, verified):
+        """ update verification and store file in file system """
+        try:
+            if self.fileExists(clientId, fileName):
+                self.touch(clientId)
+                # if file exists only update the varified status
+                file = self.fileHandler.getFileInstance(clientId,fileName)
+                self.fileHandler.verified(file, verified)
+                commited = self.execute(
+                    f"""UPDATE {Database.FILES} SET Varified = (?) 
+                     WHERE FileName = (?)  AND ID = (?) """,
+                    [verified, file.filename, file.clientId], True)
+                return True
+            else:
+                log.error("file doesnt exists")
+                return False
+        except Exception as e:
+            log.error(f"failed to update: {e}")
+            return False
+
+    def getFile(self, clientId, fileName):
+        try:
+            if self.fileExists(clientId, fileName):
+                file = self.fileHandler.getFileInstance(clientId,fileName)
+                if file:
+                    return file
+                else:
+                    return None
+            else:
+                log.error("file doesnt exists")
+                return None
+        except Exception as e:
+            log.error(f"DB return with error: {e}")
+            return None
+
+
+    def storeFileinDB(self, clientId, fileName, newContent):
+        """ store a recieved file in db' if file already exists we assume the content is new and
+        only update the content, otherwise new file instance will be created and store in db (not in filesystem yet)"""
+        try:
+            file = self.fileHandler.newFile(clientId, fileName, newContent)
+            if self.fileExists(clientId, fileName):
+                # if file exists update the verified status to false without storing the new one in filesystem
+                commited = self.execute(
+                f"""UPDATE {Database.FILES} SET Varified = FALSE 
+                 WHERE FileName = (?)  AND ID = (?)  """,
+                [file.filename, file.clientId ], True)
                 if commited:
+                    self.touch(clientId)
                     return file
             else:
-                return None
+                # new file
+                file = self.fileHandler.newFile(clientId,fileName, newContent)
+                if file:
+                    commited = self.execute(f"INSERT INTO {Database.FILES}(ID, FileName, PathName, Varified) VALUES (?, ?, ?, FALSE)",
+                                    [file.clientId, file.filename, file.parent_path], True)
+                    if commited:
+                        self.touch(clientId)
+                        return file
+                    else:
+                        log.error("failed to commit file")
+                        return None
+                else:
+                    return None
         except Exception as e:
             log.error(f"{e}")
             pass
@@ -109,7 +174,7 @@ class Database:
     def clientExists(self, clientId):
         try:
             results = self.execute(f""" SELECT Name FROM {Database.SERVER}
-                                        WHERE ID = ?; """,[clientId])
+                                        WHERE ID = (?) ; """,[clientId])
             if not results:
                 return False
             return True
@@ -119,8 +184,8 @@ class Database:
 
     def getClientsPublicKey(self,clientID):
         results = self.execute(f""" Select PublicKey FROM {Database.SERVER}
-                                    WHERE ID = ?; """,[clientID])
-        return results
+                                    WHERE ID = (?) ; """,[clientID])
+        return results[0][0]
 
     def setClientsPublicKey(self, clientID, publicKey): # todo: implement correctly
         """ given a client id, store the public key, generate the AES key and return it to client. """
@@ -129,36 +194,47 @@ class Database:
             return None # public key invalid
         self.touch(clientID)
         results = self.execute(f""" UPDATE {Database.SERVER} SET PublicKey = ?
-                                WHERE ID = ? ;""" , [clientID, publicKey], True)
+                                WHERE ID = (?)  ;""" , [publicKey, clientID], True)
         return results
 
 
-    def getClientIdByName(self,name):
+    def getClientNameById(self,clientId):
         """returns client's id corresponding to the name """
-        results = self.execute(f""" SELECT ID FROM {Database.SERVER}
-                                    WHERE Name = ?; """,[name])
-        return results
+        try:
+            results = self.execute(f""" SELECT Name FROM {Database.SERVER}
+                                    WHERE ID = (?) ; """,[clientId])
+            if results:
+                return results[0][0]
+            return None
+        except:
+            return None
 
     def setClientsSymmetricKey(self, clientID):
+        """ stores symmetric key in db"""
         aes_key = keys_handler.GenerateAesKey()
         if self.execute(f""" UPDATE {Database.SERVER} SET AesKey = ?
-                                WHERE ID = ? ;""" , [clientID, aes_key], True):
+                                WHERE ID = (?) ;""" , [aes_key, clientID], True):
             return aes_key
         return None
 
     def getClientsSymmetricKey(self, clientID):
-
+        """ selects clients symmetric key """
         results = self.execute(f""" SELECT AesKey FROM {Database.SERVER}
-                                    WHERE ID = ?; """,[clientID])
-        return results
+                                    WHERE ID = (?) ; """,[clientID])
+        if results[0]:
+            #results = bytes.fromhex(results[0][0])
+            return results[0][0]
+        else:
+            return None
 
-    
-
-    def __str__(self):
-        results = self.execute(f"""SELECT * FROM {Database.SERVER}""",[])
-        print(results)
-        results = self.execute(f"""SELECT * FROM {Database.FILES}""",[])
-        print(results)
-
-    def clientUsernameExists(self, name):
-        pass
+    def clientUsernameExists(self, clientsName):
+        try:
+            results = self.execute(f""" SELECT * FROM {Database.SERVER}
+                                                      WHERE Name = (?); """, [clientsName])
+            if results:
+                return True
+            else:
+                return False
+        except Exception as e :
+            log.error(f"error occurred: {e}")
+            pass

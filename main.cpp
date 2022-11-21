@@ -4,9 +4,9 @@
 
 int main() {
 
-ClientManager* manager = new ClientManager();
-manager->Initialize();
-manager->Run();
-
+    auto manager = new ClientManager();
+    manager->Initialize();
+    manager->Run();
+    delete manager;
     return 0;
 }

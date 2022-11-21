@@ -45,9 +45,13 @@ std::string AESWrapper::encrypt(const char* plain, unsigned int length)
     CryptoPP::CBC_Mode_ExternalCipher::Encryption cbcEncryption(aesEncryption, iv);
 
     std::string cipher;
-    CryptoPP::StreamTransformationFilter stfEncryptor(cbcEncryption, new CryptoPP::StringSink(cipher));
+    CryptoPP::StreamTransformationFilter stfEncryptor(cbcEncryption,
+                new CryptoPP::StringSink(cipher));
     stfEncryptor.Put(reinterpret_cast<const CryptoPP::byte*>(plain), length);
     stfEncryptor.MessageEnd();
+
+
+
 
     return cipher;
 }
